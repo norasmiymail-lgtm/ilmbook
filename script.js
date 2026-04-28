@@ -390,8 +390,6 @@ const Cloud = {
 };
 
 // ── AUTH ──────────────────────────────────────────────────
-
-// ── AUTH ──────────────────────────────────────────────────
 const Auth = {
   getUser: () => {
     try { return JSON.parse(localStorage.getItem('auth_user') || 'null'); } catch { return null; }
