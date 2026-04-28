@@ -10,6 +10,11 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const fbAuth = firebase.auth();
 
+// ── SUPABASE SETUP ────────────────────────────────────────
+const SUPABASE_URL = 'https://fvzyiuytlwhorrzhpbmy.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_PDwuvzCES0VCJ7jNZHd_9Q_TfcQmDpm';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const { useState, useEffect, useRef } = React;
 
 // ── QUOTES ────────────────────────────────────────────────
@@ -283,6 +288,108 @@ const Stats = {
   getRating: () => parseFloat(localStorage.getItem('stat_rating') || '0'),
   setRating: (r) => localStorage.setItem('stat_rating', r),
 };
+
+// ── CLOUD SYNC ────────────────────────────────────────────
+const Cloud = {
+  uid: () => firebase.auth().currentUser?.uid || null,
+
+  syncProgress: async (bookName, page, pct, finished, favorite) => {
+    const uid = Cloud.uid();
+    if (!uid) return;
+    try {
+      await sb.from('libraries').upsert({
+        user_id: uid, book_name: bookName,
+        page, pct, finished: finished || false, favorite: favorite || false,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,book_name' });
+    } catch(e) { console.log('Sync error:', e); }
+  },
+
+  loadLibrary: async () => {
+    const uid = Cloud.uid();
+    if (!uid) return [];
+    try {
+      const { data } = await sb.from('libraries').select('*').eq('user_id', uid);
+      return data || [];
+    } catch(e) { return []; }
+  },
+
+  saveAnnotation: async (bookName, annotation) => {
+    const uid = Cloud.uid();
+    if (!uid) return;
+    try {
+      await sb.from('annotations').insert({
+        user_id: uid, book_name: bookName,
+        type: annotation.type, text: annotation.text,
+        comment: annotation.comment || null, page: annotation.page || 0,
+      });
+    } catch(e) {}
+  },
+
+  loadAnnotations: async (bookName) => {
+    const uid = Cloud.uid();
+    if (!uid) return [];
+    try {
+      const { data } = await sb.from('annotations').select('*')
+        .eq('user_id', uid).eq('book_name', bookName);
+      return data || [];
+    } catch(e) { return []; }
+  },
+
+  saveQuote: async (quote) => {
+    const uid = Cloud.uid();
+    if (!uid) return;
+    try {
+      await sb.from('quotes').insert({
+        user_id: uid, book_name: quote.bookName,
+        book_title: quote.bookTitle, text: quote.text, saved_at: quote.savedAt,
+      });
+    } catch(e) {}
+  },
+
+  loadQuotes: async () => {
+    const uid = Cloud.uid();
+    if (!uid) return [];
+    try {
+      const { data } = await sb.from('quotes').select('*')
+        .eq('user_id', uid).order('created_at', { ascending: false });
+      return data || [];
+    } catch(e) { return []; }
+  },
+
+  deleteQuote: async (id) => {
+    const uid = Cloud.uid();
+    if (!uid) return;
+    try {
+      await sb.from('quotes').delete().eq('id', id).eq('user_id', uid);
+    } catch(e) {}
+  },
+
+  removeBook: async (bookName) => {
+    const uid = Cloud.uid();
+    if (!uid) return;
+    try {
+      await sb.from('libraries').delete().eq('user_id', uid).eq('book_name', bookName);
+      await sb.from('annotations').delete().eq('user_id', uid).eq('book_name', bookName);
+    } catch(e) {}
+  },
+
+  fullSync: async () => {
+    const uid = Cloud.uid();
+    if (!uid) return;
+    try {
+      const library = await Cloud.loadLibrary();
+      library.forEach(item => {
+        localStorage.setItem('page_' + item.book_name, item.page);
+        localStorage.setItem('pct_' + item.book_name, item.pct);
+        if (item.finished) localStorage.setItem('finished_' + item.book_name, 'true');
+        if (item.favorite) localStorage.setItem('fav_' + item.book_name, 'true');
+      });
+    } catch(e) {}
+  },
+};
+
+// ── AUTH ──────────────────────────────────────────────────
 
 // ── AUTH ──────────────────────────────────────────────────
 const Auth = {
@@ -587,9 +694,10 @@ const ReaderScreen = ({ book, onBack, t }) => {
     try { return JSON.parse(localStorage.getItem('ann_' + book.name) || '[]'); } catch { return []; }
   });
 
-  const saveAnnotations = (updated) => {
+  const saveAnnotations = (updated, newAnnotation) => {
     setAnnotations(updated);
     localStorage.setItem('ann_' + book.name, JSON.stringify(updated));
+    if (newAnnotation) Cloud.saveAnnotation(book.name, newAnnotation);
   };
 
   const pct = pages.length > 1 ? Math.round((currentPage / (pages.length - 1)) * 100) : 100;
@@ -598,9 +706,14 @@ const ReaderScreen = ({ book, onBack, t }) => {
     LS.savePage(book.name, currentPage);
     LS.savePct(book.name, pct);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (currentPage === pages.length - 1) {
+    const finished = currentPage === pages.length - 1;
+    if (finished) {
       LS.savePct(book.name, 100);
       localStorage.setItem('finished_' + book.name, 'true');
+    }
+    if (currentPage % 5 === 0 || finished) {
+      const isFav = localStorage.getItem('fav_' + book.name) === 'true';
+      Cloud.syncProgress(book.name, currentPage, pct, finished, isFav);
     }
   }, [currentPage]);
   
@@ -637,8 +750,9 @@ const ReaderScreen = ({ book, onBack, t }) => {
   };
 
   const applyAnnotation = (type) => {
-    const updated = [...annotations, { type, text: toolbar.text, page: currentPage, id: Date.now() }];
-    saveAnnotations(updated);
+    const newAnn = { type, text: toolbar.text, page: currentPage, id: Date.now() };
+    const updated = [...annotations, newAnn];
+    saveAnnotations(updated, newAnn);
     closeToolbar();
     setQuoteToast(type === 'highlight' ? 'Highlighted! ✓' : type === 'underline' ? 'Underlined! ✓' : 'Strikethrough! ✓');
     setTimeout(() => setQuoteToast(''), 2000);
@@ -876,7 +990,7 @@ const SeeAllScreen = ({ t, onOpenBook, onBack }) => {
     setError('');
     try {
       const txtUrl = b.txtUrl.replace('http://', 'https://');
-      const response = await fetch('/.netlify/functions/fetch-book?url=' + encodeURIComponent(txtUrl));
+      const response = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
       const text = await response.text();
       const paras = parseTxt(text);
       if (paras.length === 0) throw new Error('empty');
@@ -1098,7 +1212,7 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
     setSearchError('');
     try {
       const txtUrl = b.txtUrl.replace('http://', 'https://');
-      const response = await fetch('/.netlify/functions/fetch-book?url=' + encodeURIComponent(txtUrl));
+      const response = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
       const text = await response.text();
       const paras = parseTxt(text);
       if (paras.length === 0) throw new Error('empty');
@@ -1640,7 +1754,7 @@ const HighlightsScreen = ({ t, onOpenBook }) => {
     setError('');
     try {
       const txtUrl = b.txtUrl.replace('http://', 'https://');
-      const response = await fetch('/.netlify/functions/fetch-book?url=' + encodeURIComponent(txtUrl));
+      const response = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
       const text = await response.text();
       const paras = parseTxt(text);
       if (paras.length === 0) throw new Error('empty');
@@ -2041,7 +2155,7 @@ const App = () => {
 
   // Listen to Firebase auth state
   useEffect(() => {
-    const unsub = fbAuth.onAuthStateChanged(firebaseUser => {
+    const unsub = fbAuth.onAuthStateChanged(async firebaseUser => {
       if (firebaseUser) {
         const u = {
           name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
@@ -2050,6 +2164,8 @@ const App = () => {
         };
         Auth.saveUser(u);
         setUser(u);
+        await Cloud.fullSync();
+        setRefreshKey(k => k + 1);
       } else {
         setUser(null);
       }
