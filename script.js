@@ -41,22 +41,6 @@ const Quotes = {
 
 // ── TRANSLATIONS ──────────────────────────────────────────
 const T = {
-  uz: {
-    discover:"Kashfiyot", welcome:"Xush kelibsiz 👋", search:"Kitob yoki muallif qidirish...",
-    bestsellers:"Eng ko'p sotilganlar", seeAll:"Barchasi",
-    myBooks:"Kitoblarim", nowReading:"O'qilmoqda", continueBtn:"Davom etish",
-    completed:"tugallandi", finished:"Tugatildi",
-    cats:["Barchasi","O'qilgan","Sevimlilar","Iqtiboslar"],
-    uploadBtn:"Kitob yuklash",
-    profile:"Profil", readingTime:"O'qish vaqti", booksRead:"O'qilgan", rating:"Reyting",
-    menu:["Mening kartalarim","Buyurtmalar tarixi","Sevimlilar","Baholash","Fikr bildirish"],
-    cancel:"Bekor qilish", noBooks:"Bu bo'limda kitob yo'q",
-    emptyTitle:"Hali kitob yo'q.", emptySub:"Boshlash uchun PDF, EPUB yoki TXT yuklang.",
-    home:"Asosiy", detail:"Batafsil",
-    loading:"Yuklanmoqda...", errorFile:"Faylni o'qib bo'lmadi.",
-    prevPage:"← Oldingi", nextPage:"Keyingi →", backToLibrary:"← Orqaga",
-    highlights:"Belgilar", highlightsEmpty:"Hali belgilar yo'q", highlightsSub:"O'qiyotganda matnni belgilang",
-  },
   en: {
     discover:"Discover", welcome:"Welcome back 👋", search:"Search books or authors...",
     bestsellers:"Bestsellers", topAudio:"Top Audiobooks", seeAll:"See all",
@@ -73,31 +57,37 @@ const T = {
     prevPage:"← Prev", nextPage:"Next →", backToLibrary:"← Back",
     highlights:"Highlights", highlightsEmpty:"No highlights yet", highlightsSub:"Select text while reading to save highlights",
   },
-  ru: {
-    discover:"Открытия", welcome:"Добро пожаловать 👋", search:"Поиск книг или авторов...",
-    bestsellers:"Бестселлеры", seeAll:"Все",
-    myBooks:"Мои книги", nowReading:"Читаю сейчас", continueBtn:"Продолжить",
-    completed:"завершено", finished:"Прочитано",
-    cats:["Все","Прочитанные","Избранное","Цитаты"],
-    uploadBtn:"Загрузить книгу",
-    profile:"Профиль", readingTime:"Время чтения", booksRead:"Прочитано", rating:"Рейтинг",
-    menu:["Мои карты","История заказов","Избранное","Оценить","Обратная связь"],
-    cancel:"Отмена", noBooks:"В этом разделе нет книг",
-    emptyTitle:"Книг пока нет.", emptySub:"Загрузите PDF, EPUB или TXT чтобы начать.",
-    home:"Главная", detail:"Подробнее",
-    loading:"Загрузка...", errorFile:"Не удалось прочитать файл.",
-    prevPage:"← Назад", nextPage:"Вперёд →", backToLibrary:"← Назад",
-    highlights:"Заметки", highlightsEmpty:"Заметок пока нет", highlightsSub:"Выделите текст при чтении чтобы сохранить заметки",
-  }
 };
 
-// ── MOCK DATA ─────────────────────────────────────────────
+// ── GUTENDEX (Project Gutenberg) ─────────────────────────
+const GUTENDEX = 'https://gutendex.com/books/';
+
+const fetchGutendex = async (params) => {
+  const res = await fetch(GUTENDEX + '?' + params);
+  const data = await res.json();
+  return (data.results || []).map(b => ({
+    id: b.id,
+    title: b.title,
+    author: b.authors[0]?.name || 'Unknown',
+    cover: b.formats['image/jpeg'] || '',
+    txtUrl: b.formats['text/plain; charset=utf-8']
+      || b.formats['text/plain; charset=us-ascii']
+      || b.formats['text/plain'] || '',
+    downloads: b.download_count || 0,
+    subjects: b.subjects?.slice(0, 2).join(', ') || '',
+    hasMore: !!data.next,
+  })).filter(b => b.txtUrl);
+};
+
+// ── FALLBACK HERO BOOKS ───────────────────────────────────
 const MOCK = {
-  featured:[
-    {id:1,title:"Tom Sawyer",author:"Mark Twain",cover:"#1a3a5c",tag:"Bestseller"},
-    {id:2,title:"1984",author:"George Orwell",cover:"#2d1b4e",tag:"Classic"},
-    {id:3,title:"Dune",author:"Frank Herbert",cover:"#3b1f00",tag:"Sci-Fi"},
-  ],
+  featured: [
+    { id:1342, title:"Pride and Prejudice",       author:"Jane Austen",         cover:"https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg", txtUrl:"https://www.gutenberg.org/files/1342/1342-0.txt",  tag:"Classic" },
+    { id:174,  title:"The Picture of Dorian Gray", author:"Oscar Wilde",         cover:"https://www.gutenberg.org/cache/epub/174/pg174.cover.medium.jpg",  txtUrl:"https://www.gutenberg.org/files/174/174-0.txt",    tag:"Gothic"  },
+    { id:84,   title:"Frankenstein",               author:"Mary Shelley",        cover:"https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg",    txtUrl:"https://www.gutenberg.org/files/84/84-0.txt",      tag:"Gothic"  },
+    { id:98,   title:"A Tale of Two Cities",       author:"Charles Dickens",     cover:"https://www.gutenberg.org/cache/epub/98/pg98.cover.medium.jpg",    txtUrl:"https://www.gutenberg.org/files/98/98-0.txt",      tag:"Classic" },
+    { id:345,  title:"Dracula",                    author:"Bram Stoker",         cover:"https://www.gutenberg.org/cache/epub/345/pg345.cover.medium.jpg",  txtUrl:"https://www.gutenberg.org/files/345/345-0.txt",    tag:"Horror"  },
+  ]
 };
 
 const COVER_COLORS = ['#1a3a5c','#2d1b4e','#3b1f00','#0f3460','#1b3a2d','#2d0f1a','#0f1a2d','#1a0f2d','#3b0f2d','#0f2d3b'];
@@ -287,6 +277,31 @@ const Stats = {
   },
   getRating: () => parseFloat(localStorage.getItem('stat_rating') || '0'),
   setRating: (r) => localStorage.setItem('stat_rating', r),
+
+  getStreak: () => parseInt(localStorage.getItem('stat_streak') || '0'),
+  getLastRead: () => localStorage.getItem('stat_lastread') || null,
+
+  updateStreak: () => {
+    const today = new Date().toDateString();
+    const lastRead = Stats.getLastRead();
+    if (lastRead === today) return Stats.getStreak(); // already updated today
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    const current = Stats.getStreak();
+    const newStreak = lastRead === yesterday ? current + 1 : 1;
+    localStorage.setItem('stat_streak', newStreak);
+    localStorage.setItem('stat_lastread', today);
+    return newStreak;
+  },
+};
+
+// ── RECOMMENDATIONS ───────────────────────────────────────
+const getRecommendations = async (bookTitle) => {
+  try {
+    const keywords = bookTitle.replace(/\.[^/.]+$/, '').split(' ').filter(w => w.length > 3).slice(0, 2).join(' ');
+    const query = keywords || bookTitle;
+    const books = await fetchGutendex('search=' + encodeURIComponent(query) + '&mime_type=text%2Fplain');
+    return books.filter(b => b.title !== bookTitle).slice(0, 3);
+  } catch { return []; }
 };
 
 // ── CLOUD SYNC ────────────────────────────────────────────
@@ -440,15 +455,15 @@ const Cover = ({ book, w = 96, h = 136 }) => (
 );
 
 const ProgressBar = ({ pct, h = 3 }) => (
-  <div style={{ height:h, background:"#334155", borderRadius:h, overflow:"hidden" }}>
-    <div style={{ width:`${pct}%`, height:"100%", background:"#FF6B35", borderRadius:h, transition:"width 0.4s" }}/>
+  <div style={{ height:h, background:"#445257", borderRadius:h, overflow:"hidden" }}>
+    <div style={{ width:`${pct}%`, height:"100%", background:"#8B3A52", borderRadius:h, transition:"width 0.4s" }}/>
   </div>
 );
 
 const SectionHeader = ({ title, seeAll }) => (
   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
     <h3 style={{ fontSize:16, fontWeight:600 }}>{title}</h3>
-    <span style={{ fontSize:12, color:"#FF6B35", cursor:"pointer" }}>{seeAll}</span>
+    <span style={{ fontSize:12, color:"#8B3A52", cursor:"pointer" }}>{seeAll}</span>
   </div>
 );
 
@@ -480,8 +495,8 @@ const AuthScreen = ({ onLogin }) => {
 
   const inputStyle = {
     width:'100%', background:'rgba(255,255,255,0.07)',
-    border:'1px solid rgba(255,255,255,0.15)', borderRadius:12,
-    padding:'13px 16px', color:'#fff', fontSize:14,
+    border:'1px solid rgba(255,255,255,0.15)', borderRadius:2,
+    padding:'13px 16px', color:'#C8D8DC', fontSize:14,
     fontFamily:'Inter, sans-serif', outline:'none', marginBottom:12,
   };
 
@@ -572,22 +587,22 @@ const AuthScreen = ({ onLogin }) => {
     <div style={{ minHeight:'100vh', position:'relative', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', padding:'0 1.5rem 3rem' }}>
       <AuthBG/>
       <div style={{ position:'relative', zIndex:2, width:'100%', maxWidth:420, textAlign:'center' }}>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'rgba(255,107,53,0.15)', border:'1px solid rgba(255,107,53,0.35)', borderRadius:20, padding:'6px 16px', marginBottom:24 }}>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'rgba(255,107,53,0.15)', border:'1px solid rgba(255,107,53,0.35)', borderRadius:2, padding:'6px 16px', marginBottom:24 }}>
           <span style={{ fontSize:16 }}>📚</span>
-          <span style={{ fontSize:12, color:'#FF6B35', fontWeight:600, letterSpacing:1, textTransform:'uppercase' }}>Ilm Read Books</span>
+          <span style={{ fontSize:12, color:'#8B3A52', fontWeight:600, letterSpacing:1, textTransform:'uppercase' }}>Ilm Read Books</span>
         </div>
-        <h1 style={{ fontSize:34, fontWeight:700, lineHeight:1.2, marginBottom:12, color:'#fff', textShadow:'0 2px 20px rgba(0,0,0,0.8)' }}>
+        <h1 style={{ fontSize:34, fontWeight:700, lineHeight:1.2, marginBottom:12, color:'#C8D8DC', textShadow:'0 2px 20px rgba(0,0,0,0.8)' }}>
           Unlock Worlds,<br/>
-          <span style={{ color:'#FF6B35' }}>One Page at a Time.</span>
+          <span style={{ color:'#8B3A52' }}>One Page at a Time.</span>
         </h1>
         <p style={{ fontSize:15, color:'rgba(255,255,255,0.65)', marginBottom:40, lineHeight:1.6 }}>
           Your personal reading companion.<br/>Thousands of free books await.
         </p>
         <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          <button onClick={() => setMode('signup')} style={{ width:'100%', padding:16, borderRadius:14, border:'none', background:'#FF6B35', color:'#fff', fontSize:15, fontWeight:700, cursor:'pointer', boxShadow:'0 4px 24px rgba(255,107,53,0.5)' }}>
+          <button onClick={() => setMode('signup')} style={{ width:'100%', padding:16, borderRadius:2, border:'none', background:'#8B3A52', color:'#C8D8DC', fontSize:15, fontWeight:700, cursor:'pointer', boxShadow:'0 4px 24px rgba(255,107,53,0.5)' }}>
             Create Account
           </button>
-          <button onClick={() => setMode('login')} style={{ width:'100%', padding:16, borderRadius:14, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(255,255,255,0.08)', backdropFilter:'blur(10px)', color:'#fff', fontSize:15, fontWeight:500, cursor:'pointer' }}>
+          <button onClick={() => setMode('login')} style={{ width:'100%', padding:16, borderRadius:2, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(255,255,255,0.08)', backdropFilter:'blur(10px)', color:'#C8D8DC', fontSize:15, fontWeight:500, cursor:'pointer' }}>
             Log In
           </button>
         </div>
@@ -603,11 +618,11 @@ const AuthScreen = ({ onLogin }) => {
     <div style={{ minHeight:'100vh', position:'relative', display:'flex', flexDirection:'column', padding:'2rem' }}>
       <AuthBG/>
       <div style={{ position:'relative', zIndex:2, flex:1, display:'flex', flexDirection:'column' }}>
-        <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background:'none', border:'none', cursor:'pointer', color:'#FF6B35', fontSize:13, fontWeight:500, display:'flex', alignItems:'center', gap:6, marginBottom:32, alignSelf:'flex-start' }}>
-          <Icon name="arrow_left" size={16} color="#FF6B35"/> Back
+        <button onClick={() => { setMode('welcome'); setError(''); }} style={{ background:'none', border:'none', cursor:'pointer', color:'#8B3A52', fontSize:13, fontWeight:500, display:'flex', alignItems:'center', gap:6, marginBottom:32, alignSelf:'flex-start' }}>
+          <Icon name="arrow_left" size={16} color="#8B3A52"/> Back
         </button>
         <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', maxWidth:380, width:'100%', margin:'0 auto' }}>
-          <h2 style={{ fontSize:26, fontWeight:700, marginBottom:6, color:'#fff', textShadow:'0 2px 10px rgba(0,0,0,0.5)' }}>
+          <h2 style={{ fontSize:26, fontWeight:700, marginBottom:6, color:'#C8D8DC', textShadow:'0 2px 10px rgba(0,0,0,0.5)' }}>
             {mode === 'signup' ? 'Create Account' : 'Welcome Back'}
           </h2>
           <p style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginBottom: savedAccounts.length > 0 && mode === 'login' ? 16 : 28 }}>
@@ -621,12 +636,12 @@ const AuthScreen = ({ onLogin }) => {
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {savedAccounts.map((acc, i) => (
                   <div key={i} onClick={() => loginWithSaved(acc)}
-                    style={{ display:'flex', alignItems:'center', gap:12, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:12, padding:'10px 14px', cursor:'pointer' }}>
-                    <div style={{ width:36, height:36, borderRadius:'50%', background:'#FF6B35', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:700, flexShrink:0 }}>
+                    style={{ display:'flex', alignItems:'center', gap:12, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:2, padding:'10px 14px', cursor:'pointer' }}>
+                    <div style={{ width:36, height:36, borderRadius:'50%', background:'#8B3A52', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:700, flexShrink:0 }}>
                       {acc.name[0].toUpperCase()}
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <p style={{ fontSize:13, fontWeight:600, color:'#fff' }}>{acc.name}</p>
+                      <p style={{ fontSize:13, fontWeight:600, color:'#C8D8DC' }}>{acc.name}</p>
                       <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{acc.email}</p>
                     </div>
                     <button onClick={e => removeSavedAccount(e, acc.email)}
@@ -656,19 +671,19 @@ const AuthScreen = ({ onLogin }) => {
 
           {error && (
             <div style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.4)', borderRadius:10, padding:'10px 14px', marginBottom:16 }}>
-              <p style={{ color:'#ef4444', fontSize:13 }}>{error}</p>
+              <p style={{ color:'#6B2D3A', fontSize:13 }}>{error}</p>
             </div>
           )}
 
           <button onClick={mode === 'signup' ? handleSignup : handleLogin} disabled={loading}
-            style={{ width:'100%', padding:15, borderRadius:14, border:'none', background:'#FF6B35', color:'#fff', fontSize:15, fontWeight:600, cursor:loading?'default':'pointer', opacity:loading?0.7:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:'0 4px 20px rgba(255,107,53,0.4)' }}>
+            style={{ width:'100%', padding:15, borderRadius:2, border:'none', background:'#8B3A52', color:'#C8D8DC', fontSize:15, fontWeight:600, cursor:loading?'default':'pointer', opacity:loading?0.7:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:'0 4px 20px rgba(255,107,53,0.4)' }}>
             {loading ? <><span className="spin">⟳</span> Please wait...</> : mode === 'signup' ? 'Create Account' : 'Log In'}
           </button>
 
           <p style={{ textAlign:'center', marginTop:20, fontSize:13, color:'rgba(255,255,255,0.4)' }}>
             {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
             <span onClick={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setError(''); }}
-              style={{ color:'#FF6B35', cursor:'pointer', fontWeight:500 }}>
+              style={{ color:'#8B3A52', cursor:'pointer', fontWeight:500 }}>
               {mode === 'signup' ? 'Log In' : 'Sign Up'}
             </span>
           </p>
@@ -700,6 +715,10 @@ const ReaderScreen = ({ book, onBack, t }) => {
 
   const pct = pages.length > 1 ? Math.round((currentPage / (pages.length - 1)) * 100) : 100;
 
+  const [showFinished, setShowFinished] = useState(false);
+  const [recommendations, setRecommendations] = useState([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
+
   useEffect(() => {
     LS.savePage(book.name, currentPage);
     LS.savePct(book.name, pct);
@@ -708,6 +727,13 @@ const ReaderScreen = ({ book, onBack, t }) => {
     if (finished) {
       LS.savePct(book.name, 100);
       localStorage.setItem('finished_' + book.name, 'true');
+      // Show finished modal with recommendations
+      setShowFinished(true);
+      setLoadingRecs(true);
+      getRecommendations(book.title).then(recs => {
+        setRecommendations(recs);
+        setLoadingRecs(false);
+      });
     }
     if (currentPage % 5 === 0 || finished) {
       const isFav = localStorage.getItem('fav_' + book.name) === 'true';
@@ -715,8 +741,20 @@ const ReaderScreen = ({ book, onBack, t }) => {
     }
   }, [currentPage]);
   
-  // Track reading time — adds 1 second every second while reading
+  // Track reading time and update streak
+  const [streakToast, setStreakToast] = useState('');
+
   useEffect(() => {
+    const newStreak = Stats.updateStreak();
+    const lastRead = localStorage.getItem('stat_lastread_prev');
+    const today = new Date().toDateString();
+    if (lastRead !== today) {
+      localStorage.setItem('stat_lastread_prev', today);
+      if (newStreak === 1) setStreakToast('Reading streak started! 🔥');
+      else if (newStreak % 7 === 0) setStreakToast(`${newStreak} day streak! You're on fire! 🔥`);
+      else if (newStreak > 1) setStreakToast(`${newStreak} day streak! Keep it up! 🔥`);
+      if (newStreak > 0) setTimeout(() => setStreakToast(''), 3000);
+    }
     const timer = setInterval(() => {
       Stats.addReadingTime(1);
     }, 1000);
@@ -724,9 +762,9 @@ const ReaderScreen = ({ book, onBack, t }) => {
   }, []);
 
   const themes = {
-    dark:  { bg:'#0F172A', text:'#E2E8F0', toolbar:'#1E293B', border:'rgba(255,255,255,0.06)' },
-    sepia: { bg:'#f5efe6', text:'#3a2e1a', toolbar:'#ede0cc', border:'rgba(0,0,0,0.08)' },
-    white: { bg:'#ffffff', text:'#111827', toolbar:'#f1f5f9', border:'rgba(0,0,0,0.08)' },
+    dark:  { bg:'#0B0D11', text:'#C8D8DC', toolbar:'#0B0D11', border:'#445257' },
+    sepia: { bg:'#EFF3F4', text:'#1A2428', toolbar:'#D8E4E8', border:'rgba(26,36,40,0.15)' },
+    white: { bg:'#F5F8F9', text:'#1A2428', toolbar:'#E8EEF0', border:'rgba(26,36,40,0.1)' },
   };
   const th = themes[theme];
 
@@ -791,7 +829,7 @@ const ReaderScreen = ({ book, onBack, t }) => {
     const pageAnnotations = annotations.filter(a => a.page === currentPage && a.text && para.includes(a.text));
     if (pageAnnotations.length === 0) {
       return (
-        <p key={i} style={{ fontSize, lineHeight:1.95, color:th.text, marginBottom:'1.4em', fontFamily:'Georgia, serif' }}>
+        <p key={i} style={{ fontSize, lineHeight:1.95, color:th.text, marginBottom:'1.4em', fontFamily:"'EB Garamond', 'Lora', Georgia, serif" }}>
           {para}
         </p>
       );
@@ -812,7 +850,7 @@ const ReaderScreen = ({ book, onBack, t }) => {
       });
     });
     return (
-      <p key={i} style={{ fontSize, lineHeight:1.95, color:th.text, marginBottom:'1.4em', fontFamily:'Georgia, serif' }}>
+      <p key={i} style={{ fontSize, lineHeight:1.95, color:th.text, marginBottom:'1.4em', fontFamily:"'EB Garamond', 'Lora', Georgia, serif" }}>
         {parts.map((part, j) => {
           if (!part.annotated) return <span key={j}>{part.text}</span>;
           const { ann } = part;
@@ -820,12 +858,12 @@ const ReaderScreen = ({ book, onBack, t }) => {
             <span key={j} title={ann.type === 'comment' ? `💬 ${ann.comment}` : ''} style={{
               background: ann.type === 'highlight' ? 'rgba(255,107,53,0.35)' : 'transparent',
               textDecoration: ann.type === 'underline' ? 'underline' : ann.type === 'strike' ? 'line-through' : 'none',
-              textDecorationColor: '#FF6B35',
+              textDecorationColor: '#8B3A52',
               borderRadius: ann.type === 'highlight' ? 3 : 0,
               cursor: ann.type === 'comment' ? 'help' : 'default',
             }}>
               {part.text}
-              {ann.type === 'comment' && <sup style={{ fontSize:9, color:'#FF6B35', marginLeft:1 }}>💬</sup>}
+              {ann.type === 'comment' && <sup style={{ fontSize:9, color:'#8B3A52', marginLeft:1 }}>💬</sup>}
             </span>
           );
         })}
@@ -838,22 +876,22 @@ const ReaderScreen = ({ book, onBack, t }) => {
 
       {/* Top bar */}
       <div style={{ position:'sticky', top:0, zIndex:50, background:th.toolbar, borderBottom:`1px solid ${th.border}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:'#FF6B35', fontSize:13, fontWeight:500 }}>
-          <Icon name="arrow_left" size={16} color="#FF6B35"/> {t.backToLibrary}
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:'#8B3A52', fontSize:13, fontWeight:500 }}>
+          <Icon name="arrow_left" size={16} color="#8B3A52"/> {t.backToLibrary}
         </button>
-        <span style={{ flex:1, fontSize:12, color:'#64748B', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{book.title}</span>
+        <span style={{ flex:1, fontSize:12, color:'#829EA2', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{book.title}</span>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <button onClick={() => setFontSize(f => Math.max(12, f - 1))} style={{ background:'none', border:`1px solid ${th.border}`, borderRadius:6, color:th.text, padding:'3px 8px', cursor:'pointer', fontSize:12 }}>A−</button>
           <button onClick={() => setFontSize(f => Math.min(26, f + 1))} style={{ background:'none', border:`1px solid ${th.border}`, borderRadius:6, color:th.text, padding:'3px 8px', cursor:'pointer', fontSize:12 }}>A+</button>
           {['dark','sepia','white'].map(name => (
-            <button key={name} onClick={() => setTheme(name)} style={{ width:20, height:20, borderRadius:'50%', border: theme===name ? '2px solid #FF6B35' : '2px solid #334155', background: name==='dark'?'#0F172A': name==='sepia'?'#f5efe6':'#ffffff', cursor:'pointer' }}/>
+            <button key={name} onClick={() => setTheme(name)} style={{ width:20, height:20, borderRadius:'50%', border: theme===name ? '2px solid #8B3A52' : '2px solid #445257', background: name==='dark'?'#0B0D11': name==='sepia'?'#EFF3F4':'#C8D8DC', cursor:'pointer' }}/>
           ))}
         </div>
       </div>
 
       {/* Progress */}
-      <div style={{ height:2, background:'#1E293B' }}>
-        <div style={{ width:`${pct}%`, height:2, background:'#FF6B35', transition:'width 0.3s' }}/>
+      <div style={{ height:2, background:'#222A2F' }}>
+        <div style={{ width:`${pct}%`, height:2, background:'#8B3A52', transition:'width 0.3s' }}/>
       </div>
 
       {/* Content */}
@@ -865,42 +903,42 @@ const ReaderScreen = ({ book, onBack, t }) => {
       {/* Selection toolbar */}
       {toolbar && (
         <div style={{ position:'absolute', left:toolbar.x, top:toolbar.y, transform:'translateX(-50%) translateY(-100%)', zIndex:999, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-          <div style={{ display:'flex', alignItems:'center', background:'#1E293B', borderRadius:12, padding:'6px 10px', gap:2, boxShadow:'0 4px 20px rgba(0,0,0,0.5)', border:'1px solid #334155' }}>
+          <div style={{ display:'flex', alignItems:'center', background:'#222A2F', borderRadius:2, padding:'6px 10px', gap:2, boxShadow:'0 4px 20px rgba(0,0,0,0.5)', border:'1px solid #445257' }}>
             <button onClick={handleComment} title="Comment" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8, fontSize:16 }}>💬</button>
-            <div style={{ width:1, height:20, background:'#334155' }}/>
+            <div style={{ width:1, height:20, background:'#445257' }}/>
             <button onClick={() => applyAnnotation('highlight')} title="Highlight" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8, fontSize:16 }}>🖊</button>
-            <div style={{ width:1, height:20, background:'#334155' }}/>
-            <button onClick={() => applyAnnotation('underline')} title="Underline" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8, color:'#94A3B8' }}>
+            <div style={{ width:1, height:20, background:'#445257' }}/>
+            <button onClick={() => applyAnnotation('underline')} title="Underline" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8, color:'#829EA2' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>
             </button>
-            <div style={{ width:1, height:20, background:'#334155' }}/>
-            <button onClick={() => applyAnnotation('strike')} title="Strikethrough" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8, color:'#94A3B8', fontSize:15, fontWeight:700, textDecoration:'line-through' }}>S</button>
-            <div style={{ width:1, height:20, background:'#334155' }}/>
+            <div style={{ width:1, height:20, background:'#445257' }}/>
+            <button onClick={() => applyAnnotation('strike')} title="Strikethrough" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8, color:'#829EA2', fontSize:15, fontWeight:700, textDecoration:'line-through' }}>S</button>
+            <div style={{ width:1, height:20, background:'#445257' }}/>
             <button onClick={handleSaveQuote} title="Save quote" style={{ background:'none', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8 }}>
-              <Icon name="heart" size={14} color="#FF6B35"/>
+              <Icon name="heart" size={14} color="#8B3A52"/>
             </button>
           </div>
-          <div style={{ background:'#1E293B', borderRadius:10, padding:'6px 14px', boxShadow:'0 4px 20px rgba(0,0,0,0.5)', border:'1px solid #334155' }}>
-            <button onClick={handleCopy} style={{ background:'none', border:'none', cursor:'pointer', color:'#94A3B8', fontSize:12, fontWeight:500, display:'flex', alignItems:'center', gap:6 }}>
+          <div style={{ background:'#222A2F', borderRadius:10, padding:'6px 14px', boxShadow:'0 4px 20px rgba(0,0,0,0.5)', border:'1px solid #445257' }}>
+            <button onClick={handleCopy} style={{ background:'none', border:'none', cursor:'pointer', color:'#829EA2', fontSize:12, fontWeight:500, display:'flex', alignItems:'center', gap:6 }}>
               📋 Copy text
             </button>
           </div>
-          <div style={{ width:0, height:0, borderLeft:'6px solid transparent', borderRight:'6px solid transparent', borderTop:'6px solid #1E293B' }}/>
+          <div style={{ width:0, height:0, borderLeft:'6px solid transparent', borderRight:'6px solid transparent', borderTop:'6px solid #222A2F' }}/>
         </div>
       )}
 
       {/* Comment modal */}
       {commentModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-          <div style={{ background:'#1E293B', borderRadius:16, padding:20, width:'100%', maxWidth:360 }}>
-            <p style={{ fontSize:13, color:'#64748B', marginBottom:12, fontStyle:'italic', lineHeight:1.5 }}>"{commentModal.length > 80 ? commentModal.slice(0,80)+'...' : commentModal}"</p>
+          <div style={{ background:'#222A2F', borderRadius:16, padding:20, width:'100%', maxWidth:360 }}>
+            <p style={{ fontSize:13, color:'#829EA2', marginBottom:12, fontStyle:'italic', lineHeight:1.5 }}>"{commentModal.length > 80 ? commentModal.slice(0,80)+'...' : commentModal}"</p>
             <textarea autoFocus value={commentText} onChange={e => setCommentText(e.target.value)}
               placeholder="Add your comment..."
-              style={{ width:'100%', background:'#0F172A', border:'1px solid #334155', borderRadius:10, padding:12, color:'#fff', fontSize:13, resize:'none', height:100, marginBottom:12, fontFamily:'Inter, sans-serif' }}
+              style={{ width:'100%', background:'#0B0D11', border:'1px solid #445257', borderRadius:10, padding:12, color:'#C8D8DC', fontSize:13, resize:'none', height:100, marginBottom:12, fontFamily:'Inter, sans-serif' }}
             />
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={() => setCommentModal(null)} style={{ flex:1, padding:10, borderRadius:10, border:'1px solid #334155', background:'transparent', color:'#64748B', fontSize:13, cursor:'pointer' }}>Cancel</button>
-              <button onClick={saveComment} style={{ flex:1, padding:10, borderRadius:10, border:'none', background:'#FF6B35', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}>Save</button>
+              <button onClick={() => setCommentModal(null)} style={{ flex:1, padding:10, borderRadius:10, border:'1px solid #445257', background:'transparent', color:'#829EA2', fontSize:13, cursor:'pointer' }}>Cancel</button>
+              <button onClick={saveComment} style={{ flex:1, padding:10, borderRadius:10, border:'none', background:'#8B3A52', color:'#C8D8DC', fontSize:13, fontWeight:600, cursor:'pointer' }}>Save</button>
             </div>
           </div>
         </div>
@@ -908,7 +946,7 @@ const ReaderScreen = ({ book, onBack, t }) => {
 
       {/* Toast */}
       {quoteToast && (
-        <div style={{ position:'fixed', bottom:100, left:'50%', transform:'translateX(-50%)', background:'#FF6B35', color:'#fff', padding:'10px 20px', borderRadius:20, fontSize:13, fontWeight:500, zIndex:999, whiteSpace:'nowrap', boxShadow:'0 4px 16px rgba(255,107,53,0.4)' }}>
+        <div style={{ position:'fixed', bottom:100, left:'50%', transform:'translateX(-50%)', background:'#8B3A52', color:'#C8D8DC', padding:'10px 20px', borderRadius:2, fontSize:13, fontWeight:500, zIndex:999, whiteSpace:'nowrap', boxShadow:'0 4px 16px rgba(255,107,53,0.4)' }}>
           {quoteToast}
         </div>
       )}
@@ -916,15 +954,24 @@ const ReaderScreen = ({ book, onBack, t }) => {
       {/* Page nav */}
       <div style={{ position:'sticky', bottom:0, background:th.toolbar, borderTop:`1px solid ${th.border}`, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0}
-          style={{ background:'none', border:'1px solid #334155', borderRadius:8, color:currentPage===0?'#334155':'#FF6B35', padding:'8px 14px', fontSize:13, cursor:currentPage===0?'default':'pointer' }}>
+          style={{ background:'none', border:'1px solid #445257', borderRadius:8, color:currentPage===0?'#445257':'#8B3A52', padding:'8px 14px', fontSize:13, cursor:currentPage===0?'default':'pointer' }}>
           {t.prevPage}
         </button>
-        <span style={{ fontSize:12, color:'#64748B' }}>{currentPage + 1} / {pages.length} · {pct}%</span>
+        <span style={{ fontSize:12, color:'#829EA2' }}>{currentPage + 1} / {pages.length} · {pct}%</span>
         <button onClick={() => setCurrentPage(p => Math.min(pages.length - 1, p + 1))} disabled={currentPage === pages.length - 1}
-          style={{ background:'none', border:'1px solid #334155', borderRadius:8, color:currentPage===pages.length-1?'#334155':'#FF6B35', padding:'8px 14px', fontSize:13, cursor:currentPage===pages.length-1?'default':'pointer' }}>
+          style={{ background:'none', border:'1px solid #445257', borderRadius:8, color:currentPage===pages.length-1?'#445257':'#8B3A52', padding:'8px 14px', fontSize:13, cursor:currentPage===pages.length-1?'default':'pointer' }}>
           {t.nextPage}
         </button>
       </div>
+      
+
+      {/* Streak toast */}
+      {streakToast && (
+        <div style={{ position:'fixed', top:70, left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg, #8B3A52, #ff8c00)', color:'#C8D8DC', padding:'10px 20px', borderRadius:2, fontSize:13, fontWeight:600, zIndex:999, whiteSpace:'nowrap', boxShadow:'0 4px 16px rgba(255,107,53,0.5)', display:'flex', alignItems:'center', gap:8 }}>
+          {streakToast}
+        </div>
+      )}
+
     </div>
   );
 };
@@ -941,170 +988,105 @@ const SeeAllScreen = ({ t, onOpenBook, onBack }) => {
   const [searching, setSearching] = useState(false);
   const searchRef = useRef(null);
 
-  const loadBooks = (pageNum, query = '') => {
+  const loadBooks = async (pageNum, query = '') => {
     setLoading(true);
-    const url = query
-  ? `https://gutendex.com/books/?search=${encodeURIComponent(query)}&page=${pageNum}&mime_type=text%2Fplain`
-  : `https://gutendex.com/books/?sort=popular&page=${pageNum}&mime_type=text%2Fplain`;
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        const newBooks = data.results.map(b => ({
-          id: b.id,
-          title: b.title,
-          author: b.authors[0]?.name || 'Unknown',
-          cover: b.formats['image/jpeg'] || '',
-          txtUrl: b.formats['text/plain; charset=utf-8']
-            || b.formats['text/plain; charset=us-ascii']
-            || b.formats['text/plain'] || '',
-          downloads: b.download_count || 0,
-        })).filter(b => b.txtUrl);
-        setBooks(prev => pageNum === 1 ? newBooks : [...prev, ...newBooks]);
-        setHasMore(!!data.next);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    try {
+      const params = query
+        ? `search=${encodeURIComponent(query)}&page=${pageNum}&mime_type=text%2Fplain`
+        : `sort=popular&page=${pageNum}&mime_type=text%2Fplain`;
+      const res = await fetch(GUTENDEX + '?' + params);
+      const data = await res.json();
+      const newBooks = (data.results || []).map(b => ({
+        id: b.id, title: b.title,
+        author: b.authors[0]?.name || 'Unknown',
+        cover: b.formats['image/jpeg'] || '',
+        txtUrl: b.formats['text/plain; charset=utf-8'] || b.formats['text/plain; charset=us-ascii'] || b.formats['text/plain'] || '',
+        downloads: b.download_count || 0,
+      })).filter(b => b.txtUrl);
+      setBooks(prev => pageNum === 1 ? newBooks : [...prev, ...newBooks]);
+      setHasMore(!!data.next);
+    } catch {}
+    setLoading(false);
   };
 
   useEffect(() => { loadBooks(1); }, []);
 
   useEffect(() => {
     clearTimeout(searchRef.current);
-    if (searchQ.trim().length < 2) {
-      if (searchQ === '') { setPage(1); loadBooks(1); }
-      setSearching(false);
-      return;
-    }
+    if (searchQ.trim().length < 2) { if (searchQ === '') { setPage(1); loadBooks(1); } setSearching(false); return; }
     setSearching(true);
-    searchRef.current = setTimeout(() => {
-      setPage(1);
-      loadBooks(1, searchQ);
-      setSearching(false);
-    }, 500);
+    searchRef.current = setTimeout(() => { setPage(1); loadBooks(1, searchQ); setSearching(false); }, 500);
   }, [searchQ]);
 
   const downloadAndOpen = async (b) => {
-    setDownloading(b.id);
-    setError('');
+    setDownloading(b.id); setError('');
     try {
       const txtUrl = b.txtUrl.replace('http://', 'https://');
-      const response = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
-      const text = await response.text();
+      const res = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
+      const text = await res.text();
       const paras = parseTxt(text);
       if (paras.length === 0) throw new Error('empty');
       const name = b.title + '.txt';
       await LS.saveBook(name, paras);
       if (b.cover) localStorage.setItem('defaultcover_' + name, b.cover);
       onOpenBook({ name, title: b.title, paras, cover: b.cover || coverColor(name) });
-    } catch (err) {
-      setError('Could not download. Try another.');
-    }
+    } catch { setError('Could not download. Try another.'); }
     setDownloading(null);
-  };
-
-  const loadMore = () => {
-    const next = page + 1;
-    setPage(next);
-    loadBooks(next, searchQ);
   };
 
   return (
     <div className="fade-in" style={{ paddingBottom: 24 }}>
-
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: '50%', background: '#1E293B', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon name="arrow_left" size={16} color="#FF6B35" />
+        <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: '50%', background: '#222A2F', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name="arrow_left" size={16} color="#8B3A52" />
         </button>
         <h1 style={{ fontSize: 18, fontWeight: 700 }}>Popular Free Books</h1>
       </div>
 
-      {/* Search inside see all */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1E293B', borderRadius: 12, padding: '10px 14px', marginBottom: 20 }}>
-        <Icon name="search" size={15} color="#64748B" />
-        <input
-          type="text"
-          value={searchQ}
-          onChange={e => setSearchQ(e.target.value)}
-          placeholder="Search books..."
-          style={{ background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: 13, flex: 1, fontFamily: 'Inter, sans-serif' }}
-        />
-        {searching && <span className="spin" style={{ fontSize: 14, color: '#FF6B35' }}>⟳</span>}
-        {searchQ.length > 0 && !searching && (
-          <button onClick={() => setSearchQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 16 }}>✕</button>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#222A2F', borderRadius: 2, padding: '10px 14px', marginBottom: 20 }}>
+        <Icon name="search" size={15} color="#829EA2" />
+        <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search 70,000+ books..."
+          style={{ background: 'none', border: 'none', outline: 'none', color: '#C8D8DC', fontSize: 13, flex: 1, fontFamily: "'Lora', serif" }} />
+        {searching && <span className="spin" style={{ fontSize: 14, color: '#8B3A52' }}>⟳</span>}
+        {searchQ.length > 0 && !searching && <button onClick={() => setSearchQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#829EA2', fontSize: 16 }}>✕</button>}
       </div>
 
-      {error && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 12, textAlign: 'center' }}>{error}</p>}
+      {error && <p style={{ color: '#6B2D3A', fontSize: 12, marginBottom: 12, textAlign: 'center' }}>{error}</p>}
 
-      {/* Book list — like library style */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {books.map(b => (
           <div key={b.id} onClick={() => downloading === null && downloadAndOpen(b)}
-            style={{ display: 'flex', gap: 14, alignItems: 'center', background: '#1E293B', borderRadius: 14, padding: 12, cursor: downloading !== null ? 'default' : 'pointer', opacity: downloading === b.id ? 0.7 : 1, transition: 'opacity 0.2s' }}>
-
-            {/* Cover */}
-            <div style={{ flexShrink: 0, position: 'relative' }}>
-              {b.cover ? (
-                <img src={b.cover} style={{ width: 58, height: 82, borderRadius: 8, objectFit: 'cover', display: 'block' }}
-                  onError={e => { e.target.style.display = 'none'; }} />
-              ) : (
-                <div style={{ width: 58, height: 82, borderRadius: 8, background: coverColor(b.title), display: 'flex', alignItems: 'flex-end', padding: 6 }}>
-                  <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', lineHeight: 1.3 }}>{b.title.slice(0, 25)}</span>
-                </div>
-              )}
+            style={{ display: 'flex', gap: 14, alignItems: 'center', background: '#222A2F', borderRadius: 2, padding: 12, cursor: downloading !== null ? 'default' : 'pointer', border: '1px solid #445257', opacity: downloading === b.id ? 0.7 : 1, transition: 'opacity 0.2s' }}>
+            <div style={{ flexShrink: 0 }}>
+              {b.cover
+                ? <img src={b.cover} style={{ width: 58, height: 82, borderRadius: 2, objectFit: 'cover', display: 'block', border: '1px solid #445257' }} onError={e => { e.target.style.display='none'; }} />
+                : <div style={{ width: 58, height: 82, borderRadius: 2, background: coverColor(b.title), display: 'flex', alignItems: 'flex-end', padding: 6, border: '1px solid #445257' }}><span style={{ fontSize: 9, fontWeight: 600, color: '#C8D8DC', lineHeight: 1.3 }}>{b.title.slice(0,25)}</span></div>
+              }
             </div>
-
-            {/* Info */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 3, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.title}</p>
-              <p style={{ fontSize: 11, color: '#64748B', marginBottom: 8 }}>{b.author}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 10, color: '#475569', background: '#0F172A', padding: '2px 8px', borderRadius: 20 }}>
-                  📥 {b.downloads.toLocaleString()} downloads
-                </span>
-              </div>
+              <p style={{ fontSize: 11, color: '#829EA2', marginBottom: 6 }}>{b.author}</p>
+              <span style={{ fontSize: 10, color: '#445257', background: '#0B0D11', padding: '2px 8px', borderRadius: 2 }}>📥 {b.downloads.toLocaleString()}</span>
             </div>
-
-            {/* Read button */}
             <div style={{ flexShrink: 0 }}>
-              {downloading === b.id ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <span className="spin" style={{ fontSize: 20, color: '#FF6B35' }}>⟳</span>
-                  <span style={{ fontSize: 9, color: '#FF6B35' }}>Loading</span>
-                </div>
-              ) : (
-                <div style={{ background: '#FF6B35', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 600, color: '#fff', textAlign: 'center' }}>
-                  Read<br/>
-                  <span style={{ fontSize: 9, fontWeight: 400, opacity: 0.85 }}>Free ↓</span>
-                </div>
-              )}
+              {downloading === b.id
+                ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}><span className="spin" style={{ fontSize: 20, color: '#8B3A52' }}>⟳</span><span style={{ fontSize: 9, color: '#8B3A52' }}>Loading</span></div>
+                : <div style={{ background: '#8B3A52', borderRadius: 2, padding: '8px 14px', fontSize: 12, fontWeight: 600, color: '#C8D8DC', textAlign: 'center' }}>Read<br/><span style={{ fontSize: 9, fontWeight: 400, opacity: 0.85 }}>Free ↓</span></div>
+              }
             </div>
           </div>
         ))}
       </div>
 
-      {/* Loading spinner */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-          <span className="spin" style={{ fontSize: 24, color: '#FF6B35' }}>⟳</span>
-          <p style={{ fontSize: 12, color: '#64748B', marginTop: 8 }}>Loading books...</p>
-        </div>
-      )}
+      {loading && <div style={{ textAlign: 'center', padding: '2rem 0' }}><span className="spin" style={{ fontSize: 24, color: '#8B3A52' }}>⟳</span><p style={{ fontSize: 12, color: '#829EA2', marginTop: 8 }}>Loading books...</p></div>}
 
-      {/* Load more */}
       {!loading && hasMore && (
-        <button onClick={loadMore} style={{ width: '100%', marginTop: 16, padding: 14, borderRadius: 12, border: '1.5px dashed #334155', background: 'transparent', color: '#94A3B8', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <Icon name="book" size={14} color="#64748B" /> Load more books
+        <button onClick={() => { const n = page+1; setPage(n); loadBooks(n, searchQ); }}
+          style={{ width: '100%', marginTop: 16, padding: 14, borderRadius: 2, border: '1.5px dashed #445257', background: 'transparent', color: '#829EA2', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <Icon name="book" size={14} color="#829EA2" /> Load more books
         </button>
       )}
-
-      {!loading && books.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-          <p style={{ fontSize: 24, marginBottom: 8 }}>📚</p>
-          <p style={{ fontSize: 14, color: '#64748B' }}>No books found</p>
-        </div>
-      )}
+      {!loading && books.length === 0 && <div style={{ textAlign: 'center', padding: '3rem 0' }}><p style={{ fontSize: 24, marginBottom: 8 }}>📚</p><p style={{ fontSize: 14, color: '#829EA2' }}>No books found</p></div>}
     </div>
   );
 };
@@ -1140,7 +1122,7 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
     return () => clearInterval(id);
   }, [featuredBooks.length]);
 
-  // Load popular books on mount
+  // Load popular books on mount — Gutendex (Project Gutenberg)
   useEffect(() => {
     const cached = sessionStorage.getItem('catalog_v1');
     if (cached) {
@@ -1150,18 +1132,12 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
       setLoadingCatalog(false);
       return;
     }
-    fetch('https://gutendex.com/books/?sort=popular&page=1&mime_type=text%2Fplain')
-      .then(r => r.json())
-      .then(data => {
-        const books = data.results.map(b => ({
-          id: b.id,
-          title: b.title,
-          author: b.authors[0]?.name || 'Unknown',
-          cover: b.formats['image/jpeg'] || '',
-          txtUrl: b.formats['text/plain; charset=utf-8']
-            || b.formats['text/plain; charset=us-ascii']
-            || b.formats['text/plain'] || '',
-        })).filter(b => b.txtUrl);
+    fetchGutendex('sort=popular&page=1&mime_type=text%2Fplain')
+      .then(async books => {
+        try {
+          const more = await fetchGutendex('sort=popular&page=2&mime_type=text%2Fplain');
+          books = [...books, ...more];
+        } catch {}
         sessionStorage.setItem('catalog_v1', JSON.stringify(books));
         setCatalog(books);
         setFeaturedBooks(books.filter(b => b.cover).slice(0, 5));
@@ -1172,58 +1148,33 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
 
   // Search with debounce
   useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      setSearching(false);
-      return;
-    }
+    if (searchQuery.trim().length < 2) { setSearchResults([]); setSearching(false); return; }
     setSearching(true);
     clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {
-      fetch('https://gutendex.com/books/?search=' + encodeURIComponent(searchQuery) + '&mime_type=text%2Fplain')
-        .then(r => r.json())
-        .then(data => {
-          const results = data.results.map(b => ({
-            id: b.id,
-            title: b.title,
-            author: b.authors[0]?.name || 'Unknown',
-            cover: b.formats['image/jpeg'] || '',
-            txtUrl: b.formats['text/plain; charset=utf-8']
-              || b.formats['text/plain; charset=us-ascii']
-              || b.formats['text/plain']
-              || '',
-            summary: b.subjects?.slice(0, 2).join(', ') || '',
-          })).filter(b => b.txtUrl);
-          setSearchResults(results);
-          setSearching(false);
-        })
-        .catch(() => setSearching(false));
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const results = await fetchGutendex('search=' + encodeURIComponent(searchQuery) + '&mime_type=text%2Fplain');
+        setSearchResults(results);
+      } catch {}
+      setSearching(false);
     }, 500);
   }, [searchQuery]);
 
   const downloadAndOpen = async (b) => {
-    if (!b.txtUrl) {
-      setSearchError('No readable version available for this book.');
-      return;
-    }
-    setDownloading(b.id);
-    setSearchError('');
+    if (!b.txtUrl) { setSearchError('No readable version available.'); return; }
+    setDownloading(b.id); setSearchError('');
     try {
       const txtUrl = b.txtUrl.replace('http://', 'https://');
-      const response = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
-      const text = await response.text();
+      const res = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
+      const text = await res.text();
       const paras = parseTxt(text);
       if (paras.length === 0) throw new Error('empty');
       const name = b.title + '.txt';
       await LS.saveBook(name, paras);
       if (b.cover) localStorage.setItem('defaultcover_' + name, b.cover);
-      setSearchQuery('');
-      setSearchResults([]);
+      setSearchQuery(''); setSearchResults([]);
       onOpenBook({ name, title: b.title, paras, cover: b.cover || coverColor(name) });
-    } catch (err) {
-      setSearchError('Could not download this book. Try another one.');
-      console.error(err);
-    }
+    } catch { setSearchError('Could not download this book. Try another one.'); }
     setDownloading(null);
   };
 
@@ -1231,13 +1182,13 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
 
   return (
     <div className="fade-in" style={{ paddingBottom: 20 }}>
-      <p style={{ fontSize: 13, color: "#64748B" }}>{t.welcome}</p>
+      <p style={{ fontSize: 13, color: "#829EA2" }}>{t.welcome}</p>
       <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 2, marginBottom: 20 }}>{t.discover}</h1>
 
       {/* Search bar */}
       <div style={{ position: 'relative', marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#1E293B", borderRadius: 12, padding: "10px 14px" }}>
-          <Icon name="search" size={16} color="#64748B" />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#222A2F", borderRadius: 2, padding: "10px 14px" }}>
+          <Icon name="search" size={16} color="#829EA2" />
           <input
             type="text"
             value={searchQuery}
@@ -1245,19 +1196,19 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
             onFocus={() => { if (!searchQuery) setShowGenres(true); }}
             onBlur={() => setTimeout(() => setShowGenres(false), 200)}
             placeholder={t.search}
-            style={{ background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: 14, flex: 1, fontFamily: 'Inter, sans-serif' }}
+            style={{ background: 'none', border: 'none', outline: 'none', color: '#C8D8DC', fontSize: 14, flex: 1, fontFamily: 'Inter, sans-serif' }}
           />
-          {searching && <span className="spin" style={{ fontSize: 16, color: '#FF6B35' }}>⟳</span>}
+          {searching && <span className="spin" style={{ fontSize: 16, color: '#8B3A52' }}>⟳</span>}
           {searchQuery.length > 0 && !searching && (
             <button onClick={() => { setSearchQuery(''); setSearchResults([]); }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 18, lineHeight: 1 }}>✕</button>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#829EA2', fontSize: 18, lineHeight: 1 }}>✕</button>
           )}
         </div>
 
         {/* Genre dropdown */}
         {showGenres && !searchQuery && (
-          <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#1E293B', borderRadius: 12, border: '1px solid #334155', zIndex: 200, padding: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-            <p style={{ fontSize: 11, color: '#64748B', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 500 }}>Browse by genre</p>
+          <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#222A2F', borderRadius: 2, border: '1px solid #445257', zIndex: 200, padding: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+            <p style={{ fontSize: 11, color: '#829EA2', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 500 }}>Browse by genre</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {[
                 { label: '🗡 Adventure',   query: 'adventure' },
@@ -1274,7 +1225,7 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
                 { label: '📜 Classic',     query: 'classic literature' },
               ].map(g => (
                 <button key={g.query} onClick={() => { setSearchQuery(g.query); setShowGenres(false); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid #334155', background: '#0F172A', color: '#E2E8F0', fontSize: 12, fontWeight: 500, cursor: 'pointer', textAlign: 'left' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 2, border: '1px solid #445257', background: '#0B0D11', color: '#C8D8DC', fontSize: 12, fontWeight: 500, cursor: 'pointer', textAlign: 'left' }}>
                   {g.label}
                 </button>
               ))}
@@ -1284,27 +1235,27 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
 
         {/* Search results dropdown */}
         {searchResults.length > 0 && (
-          <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#1E293B', borderRadius: 12, border: '1px solid #334155', zIndex: 200, maxHeight: 420, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+          <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#222A2F', borderRadius: 2, border: '1px solid #445257', zIndex: 200, maxHeight: 420, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
             {searchResults.map((b, i) => (
               <div key={b.id} onClick={() => downloading === null && downloadAndOpen(b)}
-                style={{ display: 'flex', gap: 12, padding: '12px 14px', borderBottom: i < searchResults.length - 1 ? '1px solid #0F172A' : 'none', cursor: downloading !== null ? 'default' : 'pointer', alignItems: 'center' }}>
+                style={{ display: 'flex', gap: 12, padding: '12px 14px', borderBottom: i < searchResults.length - 1 ? '1px solid #0B0D11' : 'none', cursor: downloading !== null ? 'default' : 'pointer', alignItems: 'center' }}>
                 {b.cover ? (
                   <img src={b.cover} style={{ width: 42, height: 58, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
                 ) : (
                   <div style={{ width: 42, height: 58, borderRadius: 6, background: coverColor(b.title), flexShrink: 0, display: 'flex', alignItems: 'flex-end', padding: 4 }}>
-                    <span style={{ fontSize: 8, color: '#fff', fontWeight: 600 }}>{b.title.slice(0, 20)}</span>
+                    <span style={{ fontSize: 8, color: '#C8D8DC', fontWeight: 600 }}>{b.title.slice(0, 20)}</span>
                   </div>
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</p>
-                  <p style={{ fontSize: 11, color: '#64748B', marginBottom: 4 }}>{b.author}</p>
-                  {b.summary && <p style={{ fontSize: 10, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.summary}</p>}
+                  <p style={{ fontSize: 11, color: '#829EA2', marginBottom: 4 }}>{b.author}</p>
+                  {b.summary && <p style={{ fontSize: 10, color: '#829EA2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.summary}</p>}
                 </div>
                 <div style={{ flexShrink: 0 }}>
                   {downloading === b.id ? (
-                    <span className="spin" style={{ fontSize: 18, color: '#FF6B35' }}>⟳</span>
+                    <span className="spin" style={{ fontSize: 18, color: '#8B3A52' }}>⟳</span>
                   ) : (
-                    <div style={{ background: '#FF6B35', borderRadius: 8, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: '#fff' }}>Read</div>
+                    <div style={{ background: '#8B3A52', borderRadius: 8, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: '#C8D8DC' }}>Read</div>
                   )}
                 </div>
               </div>
@@ -1313,14 +1264,14 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
         )}
 
         {searchQuery.length >= 2 && searchResults.length === 0 && !searching && (
-          <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#1E293B', borderRadius: 12, border: '1px solid #334155', padding: '20px', textAlign: 'center', color: '#64748B', fontSize: 13, zIndex: 200 }}>
+          <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#222A2F', borderRadius: 2, border: '1px solid #445257', padding: '20px', textAlign: 'center', color: '#829EA2', fontSize: 13, zIndex: 200 }}>
             No books found for "{searchQuery}"
           </div>
         )}
       </div>
 
       {searchError && (
-        <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 12, textAlign: 'center' }}>{searchError}</p>
+        <p style={{ color: '#6B2D3A', fontSize: 12, marginBottom: 12, textAlign: 'center' }}>{searchError}</p>
       )}
 
       {/* Main content hidden during search */}
@@ -1334,18 +1285,18 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
                 <img src={heroBook.cover} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                   onError={e => { e.target.style.display = 'none'; }} />
               ) : (
-                <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, #1a3a5c, #0F172A)` }} />
+                <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, #1a3a5c, #0B0D11)` }} />
               )}
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 100%)", padding: "24px 20px", display: "flex", flexDirection: "column", justifyContent: "flex-end", cursor: heroBook.txtUrl ? 'pointer' : 'default' }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: "#FF6B35", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Popular</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "#8B3A52", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Popular</span>
                 <h2 style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.2, marginBottom: 4 }}>{heroBook.title}</h2>
-                <p style={{ fontSize: 12, color: "#94A3B8", marginBottom: 14 }}>{heroBook.author}</p>
+                <p style={{ fontSize: 12, color: "#829EA2", marginBottom: 14 }}>{heroBook.author}</p>
                 {downloading === heroBook.id ? (
-                  <div style={{ alignSelf: "flex-start", background: "#FF6B35", color: "#fff", borderRadius: 20, padding: "7px 18px", fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ alignSelf: "flex-start", background: "#8B3A52", color: "#C8D8DC", borderRadius: 2, padding: "7px 18px", fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span className="spin">⟳</span> Downloading...
                   </div>
                 ) : (
-                  <div style={{ alignSelf: "flex-start", background: "#FF6B35", color: "#fff", borderRadius: 20, padding: "7px 18px", fontSize: 12, fontWeight: 600 }}>
+                  <div style={{ alignSelf: "flex-start", background: "#8B3A52", color: "#C8D8DC", borderRadius: 2, padding: "7px 18px", fontSize: 12, fontWeight: 600 }}>
                     Read Free ↓
                   </div>
                 )}
@@ -1354,7 +1305,7 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
               <div style={{ position: "absolute", bottom: 12, right: 16, display: "flex", gap: 5 }}>
                 {featuredBooks.map((_, i) => (
                   <div key={i} onClick={e => { e.stopPropagation(); setActive(i); }}
-                    style={{ width: i === active ? 18 : 6, height: 6, borderRadius: 3, background: i === active ? "#FF6B35" : "rgba(255,255,255,0.4)", cursor: "pointer", transition: "width 0.2s" }} />
+                    style={{ width: i === active ? 18 : 6, height: 6, borderRadius: 3, background: i === active ? "#8B3A52" : "rgba(255,255,255,0.4)", cursor: "pointer", transition: "width 0.2s" }} />
                 ))}
               </div>
             </div>
@@ -1363,18 +1314,18 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
           {/* Popular books */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ fontSize: 16, fontWeight: 600 }}>Popular Free Books</h3>
-            <span onClick={onSeeAll} style={{ fontSize: 12, color: "#FF6B35", cursor: "pointer" }}>{t.seeAll}</span>
+            <span onClick={onSeeAll} style={{ fontSize: 12, color: "#8B3A52", cursor: "pointer" }}>{t.seeAll}</span>
           </div>
 
           {loadingCatalog ? (
             <div className="scroll-x" style={{ marginBottom: 28 }}>
               {[1,2,3,4,5].map(i => (
                 <div key={i} style={{ minWidth: 110, flexShrink: 0 }}>
-                  <div style={{ width: 110, height: 155, borderRadius: 8, background: '#1E293B', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ width: 110, height: 155, borderRadius: 2, background: '#222A2F', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)', animation: 'shimmer 1.2s infinite' }}/>
                   </div>
-                  <div style={{ height: 10, background: '#1E293B', borderRadius: 4, marginTop: 8, width: '80%' }}/>
-                  <div style={{ height: 8, background: '#1E293B', borderRadius: 4, marginTop: 5, width: '55%' }}/>
+                  <div style={{ height: 10, background: '#222A2F', borderRadius: 2, marginTop: 8, width: '80%' }}/>
+                  <div style={{ height: 8, background: '#222A2F', borderRadius: 2, marginTop: 5, width: '55%' }}/>
                 </div>
               ))}
             </div>
@@ -1384,19 +1335,21 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
                 <div key={b.id} onClick={() => downloadAndOpen(b)}
                   style={{ minWidth: 110, cursor: 'pointer', opacity: downloading === b.id ? 0.6 : 1, transition: 'opacity 0.2s' }}>
                   {b.cover ? (
-                    <img src={b.cover} style={{ width: 110, height: 155, borderRadius: 8, objectFit: 'cover', display: 'block' }}
+                    <img src={b.cover} style={{ width: 110, height: 155, borderRadius: 2, objectFit: 'cover', display: 'block', border: '1px solid #445257' }}
                       onError={e => { e.target.style.display = 'none'; }} />
                   ) : (
-                    <div style={{ width: 110, height: 155, borderRadius: 8, background: coverColor(b.title), display: 'flex', alignItems: 'flex-end', padding: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: '#fff', lineHeight: 1.3 }}>{b.title}</span>
+                    <div style={{ width: 110, height: 155, borderRadius: 2, background: coverColor(b.title), display: 'flex', alignItems: 'flex-end', padding: 8, border: '1px solid #445257' }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: '#C8D8DC', lineHeight: 1.3 }}>{b.title}</span>
                     </div>
                   )}
                   <p style={{ fontSize: 11, fontWeight: 500, marginTop: 6, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }}>{b.title}</p>
-                  <p style={{ fontSize: 10, color: "#64748B", marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }}>{b.author}</p>
+                  <p style={{ fontSize: 10, color: "#829EA2", marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }}>{b.author}</p>
                   {downloading === b.id ? (
-                    <p style={{ fontSize: 10, color: '#FF6B35', marginTop: 3 }}>Downloading...</p>
+                    <p style={{ fontSize: 10, color: '#8B3A52', marginTop: 3 }}>Downloading...</p>
+                  ) : b.downloads ? (
+                    <p style={{ fontSize: 10, color: "#445257", marginTop: 3 }}>📥 {(b.downloads/1000).toFixed(0)}k</p>
                   ) : (
-                    <p style={{ fontSize: 11, color: "#FF6B35", fontWeight: 600, marginTop: 3 }}>Free ↓</p>
+                    <p style={{ fontSize: 11, color: "#8B3A52", fontWeight: 600, marginTop: 3 }}>Free ↓</p>
                   )}
                 </div>
               ))}
@@ -1407,6 +1360,80 @@ const HomeScreen = ({ t, onOpenBook, onSeeAll }) => {
     </div>
   );
 };
+
+// ── SHARE QUOTE ───────────────────────────────────────────
+async function shareQuote(text, bookTitle) {
+  // 1. Build canvas image
+  const W = 1080, H = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, '#0B0D11');
+  grad.addColorStop(1, '#222A2F');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Orange accent bar
+  ctx.fillStyle = '#8B3A52';
+  ctx.fillRect(80, 120, 6, H - 240);
+
+  // Quote mark
+  ctx.font = 'bold 160px Georgia, serif';
+  ctx.fillStyle = 'rgba(255,107,53,0.15)';
+  ctx.fillText('"', 60, 300);
+
+  // Quote text — word-wrap
+  const maxW = W - 200;
+  const words = text.split(' ');
+  let lines = [], line = '';
+  ctx.font = '500 52px Inter, sans-serif';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  // Clamp to ~8 lines
+  if (lines.length > 8) { lines = lines.slice(0, 8); lines[7] = lines[7] + '…'; }
+
+  ctx.fillStyle = '#C8D8DC';
+  const lineH = 72;
+  const startY = Math.max(200, (H - lines.length * lineH - 160) / 2);
+  lines.forEach((l, i) => { ctx.fillText(l, 120, startY + i * lineH); });
+
+  // Book title
+  ctx.font = '600 38px Inter, sans-serif';
+  ctx.fillStyle = '#8B3A52';
+  ctx.fillText('— ' + bookTitle, 120, H - 160);
+
+  // App name
+  ctx.font = '400 30px Inter, sans-serif';
+  ctx.fillStyle = '#829EA2';
+  ctx.fillText('Ilm Read Books', 120, H - 110);
+
+  // 2. Copy text to clipboard
+  const shareText = `"${text}"\n— ${bookTitle}\n\nRead on Ilm Read Books`;
+  try { await navigator.clipboard.writeText(shareText); } catch {}
+
+  // 3. Try Web Share API with image
+  canvas.toBlob(async (blob) => {
+    const file = new File([blob], 'quote.png', { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text: shareText });
+        return;
+      } catch {}
+    }
+    // 4. Fallback: download image
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ilmbook-quote.png';
+    a.click();
+  }, 'image/png');
+}
 
 // ── QUOTES TAB ────────────────────────────────────────────
 const QuotesTab = ({ quotes, setQuotes, allAnnotations, onOpenBook }) => {
@@ -1424,9 +1451,9 @@ const QuotesTab = ({ quotes, setQuotes, allAnnotations, onOpenBook }) => {
     ? quotes
     : allAnnotations.filter(a => a.type === noteFilter);
 
-  const jumpToBook = (bookName) => {
-    const paras = LS.loadBook(bookName);
-    if (!paras) return;
+  const jumpToBook = async (bookName) => {
+    const paras = await LS.loadBook(bookName);
+    if (!paras || paras.length === 0) return;
     onOpenBook({
       name: bookName,
       title: bookName.replace(/\.[^/.]+$/, ''),
@@ -1441,10 +1468,10 @@ const QuotesTab = ({ quotes, setQuotes, allAnnotations, onOpenBook }) => {
       <div className="scroll-x" style={{ marginBottom: 16, paddingBottom: 4 }}>
         {CATEGORIES.map(c => (
           <button key={c.key} onClick={() => setNoteFilter(c.key)} style={{
-            whiteSpace: 'nowrap', padding: '7px 14px', borderRadius: 20,
+            whiteSpace: 'nowrap', padding: '7px 14px', borderRadius: 2,
             border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
-            background: noteFilter === c.key ? '#FF6B35' : '#1E293B',
-            color: noteFilter === c.key ? '#fff' : '#94A3B8',
+            background: noteFilter === c.key ? '#8B3A52' : '#222A2F',
+            color: noteFilter === c.key ? '#fff' : '#829EA2',
             transition: 'all 0.15s', flexShrink: 0,
           }}>
             {c.label}
@@ -1459,20 +1486,27 @@ const QuotesTab = ({ quotes, setQuotes, allAnnotations, onOpenBook }) => {
             <div style={{ textAlign: 'center', padding: '2rem 0' }}>
               <p style={{ fontSize: 24, marginBottom: 8 }}>💬</p>
               <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No quotes yet</p>
-              <p style={{ fontSize: 12, color: '#64748B' }}>Highlight text while reading to save quotes</p>
+              <p style={{ fontSize: 12, color: '#829EA2' }}>Highlight text while reading to save quotes</p>
             </div>
           ) : quotes.map(q => (
-            <div key={q.id} style={{ background: '#1E293B', borderRadius: 12, padding: 16, borderLeft: '3px solid #FF6B35' }}>
-              <p style={{ fontSize: 13, color: '#E2E8F0', lineHeight: 1.7, fontStyle: 'italic', marginBottom: 10 }}>"{q.text}"</p>
+            <div key={q.id} style={{ background: '#222A2F', borderRadius: 2, padding: 16, borderLeft: '3px solid #8B3A52' }}>
+              <p style={{ fontSize: 13, color: '#C8D8DC', lineHeight: 1.7, fontStyle: 'italic', marginBottom: 10 }}>"{q.text}"</p>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ fontSize: 11, color: '#FF6B35', fontWeight: 500 }}>{q.bookTitle}</p>
-                  <p style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>{q.savedAt}</p>
+                  <p style={{ fontSize: 11, color: '#8B3A52', fontWeight: 500 }}>{q.bookTitle}</p>
+                  <p style={{ fontSize: 10, color: '#829EA2', marginTop: 2 }}>{q.savedAt}</p>
                 </div>
-                <button onClick={() => { Quotes.delete(q.id); setQuotes(Quotes.getAll()); }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5 }}>
-                  <Icon name="trash" size={14} color="#ef4444"/>
-                </button>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button onClick={() => shareQuote(q.text, q.bookTitle)}
+                    title="Share quote"
+                    style={{ background: '#0B0D11', border: 'none', cursor: 'pointer', padding: '6px 10px', borderRadius: 8, fontSize: 14 }}>
+                    📤
+                  </button>
+                  <button onClick={() => { Quotes.delete(q.id); setQuotes(Quotes.getAll()); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5 }}>
+                    <Icon name="trash" size={14} color="#6B2D3A"/>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -1485,35 +1519,42 @@ const QuotesTab = ({ quotes, setQuotes, allAnnotations, onOpenBook }) => {
           {filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem 0' }}>
               <p style={{ fontSize: 24, marginBottom: 8 }}>🔖</p>
-              <p style={{ fontSize: 14, color: '#64748B' }}>No {noteFilter}s yet</p>
-              <p style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>Select text while reading to add</p>
+              <p style={{ fontSize: 14, color: '#829EA2' }}>No {noteFilter}s yet</p>
+              <p style={{ fontSize: 12, color: '#829EA2', marginTop: 4 }}>Select text while reading to add</p>
             </div>
           ) : filtered.map((a, i) => (
             <div key={a.id || i} onClick={() => jumpToBook(a.bookName)}
-              style={{ background: '#1E293B', borderRadius: 12, padding: 16, cursor: 'pointer',
-                borderLeft: `3px solid ${a.type === 'highlight' ? '#FF6B35' : a.type === 'underline' ? '#3b82f6' : a.type === 'strike' ? '#ef4444' : '#22c55e'}` }}>
+              style={{ background: '#222A2F', borderRadius: 2, padding: 16, cursor: 'pointer',
+                borderLeft: `3px solid ${a.type === 'highlight' ? '#8B3A52' : a.type === 'underline' ? '#829EA2' : a.type === 'strike' ? '#6B2D3A' : '#445257'}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#FF6B35', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#8B3A52', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   {CATEGORIES.find(c => c.key === a.type)?.label || a.type}
                 </span>
-                <span style={{ fontSize: 10, color: '#475569' }}>Page {(a.page || 0) + 1}</span>
+                <span style={{ fontSize: 10, color: '#829EA2' }}>Page {(a.page || 0) + 1}</span>
               </div>
-              <p style={{ fontSize: 13, lineHeight: 1.7, color: '#E2E8F0',
+              <p style={{ fontSize: 13, lineHeight: 1.7, color: '#C8D8DC',
                 background: a.type === 'highlight' ? 'rgba(255,107,53,0.12)' : 'transparent',
                 padding: a.type === 'highlight' ? '6px 8px' : 0, borderRadius: 6,
                 textDecoration: a.type === 'underline' ? 'underline' : a.type === 'strike' ? 'line-through' : 'none',
-                textDecorationColor: '#FF6B35' }}>
+                textDecorationColor: '#8B3A52' }}>
                 "{a.text}"
               </p>
               {a.comment && (
-                <div style={{ background: '#0F172A', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
-                  <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 2 }}>Your note:</p>
-                  <p style={{ fontSize: 12, color: '#E2E8F0' }}>{a.comment}</p>
+                <div style={{ background: '#0B0D11', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
+                  <p style={{ fontSize: 11, color: '#829EA2', marginBottom: 2 }}>Your note:</p>
+                  <p style={{ fontSize: 12, color: '#C8D8DC' }}>{a.comment}</p>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-                <p style={{ fontSize: 11, color: '#FF6B35', fontWeight: 500 }}>{a.bookTitle}</p>
-                <span style={{ fontSize: 10, color: '#475569', background: '#0F172A', padding: '3px 8px', borderRadius: 12 }}>Tap to jump →</span>
+                <p style={{ fontSize: 11, color: '#8B3A52', fontWeight: 500 }}>{a.bookTitle}</p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button onClick={(e) => { e.stopPropagation(); shareQuote(a.text, a.bookTitle); }}
+                    title="Share"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }}>
+                    📤
+                  </button>
+                  <span style={{ fontSize: 10, color: '#829EA2', background: '#0B0D11', padding: '3px 8px', borderRadius: 2 }}>Tap to jump →</span>
+                </div>
               </div>
             </div>
           ))}
@@ -1532,11 +1573,21 @@ const LibraryScreen = ({ t, onOpenBook, refreshKey }) => {
   const [error, setError] = useState('');
   const [books, setBooks] = useState([]);
   const [quotes, setQuotes] = useState(() => Quotes.getAll());
+  const [allAnnotations, setAllAnnotations] = useState([]);
   const fileRef = useRef();
 
   const refreshBooks = async () => {
     const names = await LS.getAllBooks();
     setBooks(names);
+    // Load annotations for all books
+    const annotations = [];
+    names.forEach(name => {
+      try {
+        const ann = JSON.parse(localStorage.getItem('ann_' + name) || '[]');
+        ann.forEach(a => annotations.push({ ...a, bookName: name, bookTitle: name.replace(/\.[^/.]+$/, '') }));
+      } catch {}
+    });
+    setAllAnnotations(annotations);
   };
 
   useEffect(() => {
@@ -1608,16 +1659,16 @@ const LibraryScreen = ({ t, onOpenBook, refreshKey }) => {
 
       {/* Currently reading */}
       {current && (
-        <div onClick={() => openSaved(current)} style={{ background:"#1E293B", borderRadius:14, padding:16, marginBottom:24, cursor:'pointer' }}>
-          <p style={{ fontSize:11, color:"#64748B", marginBottom:12, textTransform:"uppercase", letterSpacing:0.8, fontWeight:500 }}>{t.nowReading}</p>
+        <div onClick={() => openSaved(current)} style={{ background:"#222A2F", borderRadius:2, padding:16, marginBottom:24, cursor:'pointer' }}>
+          <p style={{ fontSize:11, color:"#829EA2", marginBottom:12, textTransform:"uppercase", letterSpacing:0.8, fontWeight:500 }}>{t.nowReading}</p>
           <div style={{ display:"flex", gap:14, alignItems:"center" }}>
             <Cover book={{ title: current.replace(/\.[^/.]+$/, ''), cover: coverColor(current) }} w={64} h={90}/>
             <div style={{ flex:1, minWidth:0 }}>
               <p style={{ fontSize:14, fontWeight:600, marginBottom:3 }}>{current.replace(/\.[^/.]+$/, '')}</p>
               <ProgressBar pct={LS.loadPct(current)} h={4}/>
               <div style={{ display:"flex", justifyContent:"space-between", marginTop:6 }}>
-                <span style={{ fontSize:11, color:"#FF6B35", fontWeight:600 }}>{LS.loadPct(current)}% {t.completed}</span>
-                <span style={{ fontSize:11, background:"#FF6B35", color:"#fff", borderRadius:12, padding:"4px 12px", fontWeight:500 }}>{t.continueBtn}</span>
+                <span style={{ fontSize:11, color:"#8B3A52", fontWeight:600 }}>{LS.loadPct(current)}% {t.completed}</span>
+                <span style={{ fontSize:11, background:"#8B3A52", color:"#fff", borderRadius:2, padding:"4px 12px", fontWeight:500 }}>{t.continueBtn}</span>
               </div>
             </div>
           </div>
@@ -1627,25 +1678,15 @@ const LibraryScreen = ({ t, onOpenBook, refreshKey }) => {
       {/* Category tabs */}
       <div style={{ display:"flex", gap:8, marginBottom:20, overflowX:"auto", paddingBottom:4 }}>
         {t.cats.map((label, i) => (
-          <button key={i} onClick={() => setCat(i)} style={{ display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap", padding:"8px 14px", borderRadius:20, border:"none", cursor:"pointer", fontSize:12, fontWeight:500, background:cat===i?"#FF6B35":"#1E293B", color:cat===i?"#fff":"#94A3B8", transition:"all 0.15s" }}>
-            <Icon name={CATS_ICONS[i]} size={13} color={cat===i?"#fff":"#94A3B8"}/> {label}
+          <button key={i} onClick={() => setCat(i)} style={{ display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap", padding:"8px 14px", borderRadius:2, border:"none", cursor:"pointer", fontSize:12, fontWeight:500, background:cat===i?"#8B3A52":"#222A2F", color:cat===i?"#fff":"#829EA2", transition:"all 0.15s" }}>
+            <Icon name={CATS_ICONS[i]} size={13} color={cat===i?"#fff":"#829EA2"}/> {label}
           </button>
         ))}
       </div>
 
       {/* Quotes tab */}
       {cat === 3 && (
-        <QuotesTab quotes={quotes} setQuotes={setQuotes} allAnnotations={(() => {
-          const books = LS.getAllBooks();
-          const annotations = [];
-          books.forEach(name => {
-            try {
-              const ann = JSON.parse(localStorage.getItem('ann_' + name) || '[]');
-              ann.forEach(a => annotations.push({ ...a, bookName: name, bookTitle: name.replace(/\.[^/.]+$/, '') }));
-            } catch {}
-          });
-          return annotations;
-        })()} onOpenBook={onOpenBook}/>
+        <QuotesTab quotes={quotes} setQuotes={setQuotes} allAnnotations={allAnnotations} onOpenBook={onOpenBook}/>
       )}
 
       {/* Book list */}
@@ -1655,45 +1696,45 @@ const LibraryScreen = ({ t, onOpenBook, refreshKey }) => {
             const pct = LS.loadPct(name);
             const title = name.replace(/\.[^/.]+$/, '');
             return (
-              <div key={name} onClick={() => openSaved(name)} style={{ display:"flex", gap:12, alignItems:"center", background:"#1E293B", borderRadius:12, padding:12, cursor:'pointer' }}>
+              <div key={name} onClick={() => openSaved(name)} style={{ display:"flex", gap:12, alignItems:"center", background:"#222A2F", borderRadius:2, padding:12, cursor:'pointer' }}>
                 <Cover book={{ title, cover: coverColor(name) }} w={52} h={74}/>
                 <div style={{ flex:1, minWidth:0 }}>
                   <p style={{ fontSize:13, fontWeight:600, marginBottom:2 }}>{title}</p>
-                  <p style={{ fontSize:11, color:"#64748B", marginBottom:8 }}>{name.split('.').pop().toUpperCase()}</p>
+                  <p style={{ fontSize:11, color:"#829EA2", marginBottom:8 }}>{name.split('.').pop().toUpperCase()}</p>
                   <ProgressBar pct={pct} h={3}/>
-                  <span style={{ fontSize:10, color:pct>=100?"#22C55E":"#FF6B35", marginTop:4, display:"block", fontWeight:500 }}>
+                  <span style={{ fontSize:10, color:pct>=100?"#445257":"#8B3A52", marginTop:4, display:"block", fontWeight:500 }}>
                     {pct >= 100 ? `✓ ${t.finished}` : `${pct}%`}
                   </span>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                   <button onClick={e => toggleFavorite(e, name)} style={{ background:'none', border:'none', cursor:'pointer', padding:6, borderRadius:8 }}>
-                    <Icon name="heart" size={15} color={isFavorite(name) ? "#ef4444" : "#475569"}/>
+                    <Icon name="heart" size={15} color={isFavorite(name) ? "#6B2D3A" : "#829EA2"}/>
                   </button>
                   <button onClick={e => deleteBook(e, name)} style={{ background:'none', border:'none', cursor:'pointer', padding:6, borderRadius:8, opacity:0.6 }}>
-                    <Icon name="trash" size={15} color="#ef4444"/>
+                    <Icon name="trash" size={15} color="#6B2D3A"/>
                   </button>
                 </div>
               </div>
             );
           })}
           {filtered.length === 0 && books.length > 0 && (
-            <p style={{ color:"#475569", fontSize:13, textAlign:"center", padding:"2rem 0" }}>{t.noBooks}</p>
+            <p style={{ color:"#829EA2", fontSize:13, textAlign:"center", padding:"2rem 0" }}>{t.noBooks}</p>
           )}
         </div>
       )}
 
-      {error && <p style={{ color:"#ef4444", fontSize:12, marginBottom:10, textAlign:"center" }}>{error}</p>}
+      {error && <p style={{ color:"#6B2D3A", fontSize:12, marginBottom:10, textAlign:"center" }}>{error}</p>}
       <input ref={fileRef} type="file" accept=".epub,.txt,.pdf" style={{ display:"none" }} onChange={handleFile}/>
       <button onClick={() => fileRef.current.click()} disabled={loading}
-        style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:10, padding:16, borderRadius:12, border:"1.5px dashed #334155", background:"transparent", color:loading?"#475569":"#94A3B8", fontSize:13, fontWeight:500, cursor:loading?"default":"pointer" }}>
-        {loading ? <><span className="spin" style={{ fontSize:16 }}>⟳</span> {t.loading}</> : <><Icon name="upload" size={16} color="#64748B"/> {t.uploadBtn}</>}
+        style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:10, padding:16, borderRadius:2, border:"1.5px dashed #445257", background:"transparent", color:loading?"#829EA2":"#829EA2", fontSize:13, fontWeight:500, cursor:loading?"default":"pointer" }}>
+        {loading ? <><span className="spin" style={{ fontSize:16 }}>⟳</span> {t.loading}</> : <><Icon name="upload" size={16} color="#829EA2"/> {t.uploadBtn}</>}
       </button>
 
       {books.length === 0 && !loading && (
         <div style={{ textAlign:"center", padding:"2rem 0" }}>
           <p style={{ fontSize:28, marginBottom:8 }}>📚</p>
           <p style={{ fontSize:15, fontWeight:600, marginBottom:6 }}>{t.emptyTitle}</p>
-          <p style={{ fontSize:13, color:"#64748B" }}>{t.emptySub}</p>
+          <p style={{ fontSize:13, color:"#829EA2" }}>{t.emptySub}</p>
         </div>
       )}
     </div>
@@ -1728,81 +1769,74 @@ const HighlightsScreen = ({ t, onOpenBook }) => {
     setLoadingBooks(true);
     setCatalogBooks([]);
     setShowGenreMenu(false);
-    fetch(`https://gutendex.com/books/?search=${encodeURIComponent(query)}&mime_type=text%2Fplain`)
-      .then(r => r.json())
-      .then(data => {
-        const books = data.results.map(b => ({
-          id: b.id,
-          title: b.title,
-          author: b.authors[0]?.name || 'Unknown',
-          cover: b.formats['image/jpeg'] || '',
-          txtUrl: b.formats['text/plain; charset=utf-8']
-            || b.formats['text/plain; charset=us-ascii']
-            || b.formats['text/plain'] || '',
-          downloads: b.download_count || 0,
-        })).filter(b => b.txtUrl);
-        setCatalogBooks(books);
-        setLoadingBooks(false);
-      })
+    fetchGutendex('search=' + encodeURIComponent(query) + '&mime_type=text%2Fplain')
+      .then(books => { setCatalogBooks(books); setLoadingBooks(false); })
       .catch(() => setLoadingBooks(false));
   };
 
   const downloadAndOpen = async (b) => {
-    setDownloading(b.id);
-    setError('');
+    setDownloading(b.id); setError('');
     try {
       const txtUrl = b.txtUrl.replace('http://', 'https://');
-      const response = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
-      const text = await response.text();
+      const res = await fetch('/api/fetch-book?url=' + encodeURIComponent(txtUrl));
+      const text = await res.text();
       const paras = parseTxt(text);
       if (paras.length === 0) throw new Error('empty');
       const name = b.title + '.txt';
       await LS.saveBook(name, paras);
       if (b.cover) localStorage.setItem('defaultcover_' + name, b.cover);
       onOpenBook({ name, title: b.title, paras, cover: b.cover || coverColor(name) });
-    } catch (err) {
-      setError('Could not download. Try another.');
-    }
+    } catch { setError('Could not download. Try another.'); }
     setDownloading(null);
   };
+
+  const SkeletonList = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {[1,2,3,4].map(i => (
+        <div key={i} style={{ display: 'flex', gap: 12, background: '#222A2F', borderRadius: 2, padding: 12 }}>
+          <div style={{ width: 52, height: 74, borderRadius: 8, background: '#445257', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)', animation: 'shimmer 1.2s infinite' }}/>
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
+            <div style={{ height: 12, background: '#445257', borderRadius: 4, width: '70%' }}/>
+            <div style={{ height: 10, background: '#445257', borderRadius: 4, width: '45%' }}/>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="fade-in" style={{ paddingBottom: 24 }}>
 
-      {/* Header */}
+      {/* Header + Genre button */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700 }}>{t.highlights}</h1>
-
-        {/* Genres button */}
         <div style={{ position: 'relative' }}>
           <button onClick={() => setShowGenreMenu(p => !p)} style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 14px', borderRadius: 20,
-            border: '1px solid #334155', background: showGenreMenu ? '#FF6B35' : '#1E293B',
-            color: showGenreMenu ? '#fff' : '#94A3B8',
+            padding: '8px 14px', borderRadius: 2,
+            border: '1px solid #445257', background: showGenreMenu ? '#8B3A52' : '#222A2F',
+            color: showGenreMenu ? '#fff' : '#829EA2',
             fontSize: 12, fontWeight: 500, cursor: 'pointer',
           }}>
             📚 Genres {showGenreMenu ? '▲' : '▼'}
           </button>
-
-          {/* Genre dropdown */}
           {showGenreMenu && (
             <div style={{
               position: 'absolute', top: '110%', right: 0, zIndex: 300,
-              background: '#1E293B', borderRadius: 14, border: '1px solid #334155',
+              background: '#222A2F', borderRadius: 2, border: '1px solid #445257',
               padding: 12, width: 220, boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
             }}>
-              <p style={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, fontWeight: 600 }}>
-                Browse by genre
-              </p>
+              <p style={{ fontSize: 10, color: '#829EA2', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, fontWeight: 600 }}>Browse by genre</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 {GENRES.map(g => (
                   <button key={g.query} onClick={() => { setSelectedGenre(g); loadGenreBooks(g.query); }}
                     style={{
                       padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
                       fontSize: 11, fontWeight: 500, textAlign: 'left',
-                      background: selectedGenre?.query === g.query ? '#FF6B35' : '#0F172A',
-                      color: selectedGenre?.query === g.query ? '#fff' : '#94A3B8',
+                      background: selectedGenre?.query === g.query ? '#8B3A52' : '#0B0D11',
+                      color: selectedGenre?.query === g.query ? '#fff' : '#829EA2',
                       transition: 'all 0.15s',
                     }}>
                     {g.label}
@@ -1814,83 +1848,59 @@ const HighlightsScreen = ({ t, onOpenBook }) => {
         </div>
       </div>
 
-      {error && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 12, textAlign: 'center' }}>{error}</p>}
+      {error && <p style={{ color: '#6B2D3A', fontSize: 12, marginBottom: 12, textAlign: 'center' }}>{error}</p>}
 
-      {/* Selected genre header */}
       {selectedGenre && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <p style={{ fontSize: 14, fontWeight: 600 }}>{selectedGenre.label} Books</p>
           <button onClick={() => { setSelectedGenre(null); setCatalogBooks([]); }}
-            style={{ fontSize: 11, color: '#FF6B35', background: 'none', border: 'none', cursor: 'pointer' }}>
+            style={{ fontSize: 11, color: '#8B3A52', background: 'none', border: 'none', cursor: 'pointer' }}>
             Clear ✕
           </button>
         </div>
       )}
 
-      {/* Genre books */}
-      {selectedGenre && (
-        <div style={{ marginBottom: 24 }}>
-          {loadingBooks ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[1,2,3,4].map(i => (
-                <div key={i} style={{ display: 'flex', gap: 12, background: '#1E293B', borderRadius: 12, padding: 12 }}>
-                  <div style={{ width: 52, height: 74, borderRadius: 8, background: '#334155', overflow: 'hidden', position: 'relative' }}>
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)', animation: 'shimmer 1.2s infinite' }}/>
-                  </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
-                    <div style={{ height: 12, background: '#334155', borderRadius: 4, width: '70%' }}/>
-                    <div style={{ height: 10, background: '#334155', borderRadius: 4, width: '45%' }}/>
-                  </div>
+      {selectedGenre ? (
+        loadingBooks ? <SkeletonList /> : catalogBooks.length === 0 ? (
+          <p style={{ color: '#829EA2', fontSize: 13, textAlign: 'center', padding: '1rem 0' }}>No books found</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {catalogBooks.map(b => (
+              <div key={b.id} onClick={() => downloading === null && downloadAndOpen(b)}
+                style={{ display: 'flex', gap: 12, alignItems: 'center', background: '#222A2F', borderRadius: 2, padding: 12, cursor: 'pointer', opacity: downloading === b.id ? 0.7 : 1, transition: 'opacity 0.2s' }}>
+                {b.cover ? (
+                  <img src={b.cover} style={{ width: 52, height: 74, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }}/>
+                ) : (
+                  <div style={{ width: 52, height: 74, borderRadius: 8, background: coverColor(b.title), flexShrink: 0 }}/>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</p>
+                  <p style={{ fontSize: 11, color: '#829EA2', marginBottom: 6 }}>{b.author}</p>
+                  <span style={{ fontSize: 10, color: '#829EA2', background: '#0B0D11', padding: '2px 8px', borderRadius: 2 }}>
+                    📥 {b.downloads.toLocaleString()}
+                  </span>
                 </div>
-              ))}
-            </div>
-          ) : catalogBooks.length === 0 ? (
-            <p style={{ color: '#64748B', fontSize: 13, textAlign: 'center', padding: '1rem 0' }}>No books found</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {catalogBooks.map(b => (
-                <div key={b.id} onClick={() => downloading === null && downloadAndOpen(b)}
-                  style={{ display: 'flex', gap: 12, alignItems: 'center', background: '#1E293B', borderRadius: 12, padding: 12, cursor: 'pointer', opacity: downloading === b.id ? 0.7 : 1, transition: 'opacity 0.2s' }}>
-                  {b.cover ? (
-                    <img src={b.cover} style={{ width: 52, height: 74, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
-                      onError={e => { e.target.style.display = 'none'; }}/>
+                <div style={{ flexShrink: 0 }}>
+                  {downloading === b.id ? (
+                    <span className="spin" style={{ fontSize: 20, color: '#8B3A52' }}>⟳</span>
                   ) : (
-                    <div style={{ width: 52, height: 74, borderRadius: 8, background: coverColor(b.title), flexShrink: 0 }}/>
+                    <div style={{ background: '#8B3A52', borderRadius: 2, padding: '8px 12px', fontSize: 11, fontWeight: 600, color: '#C8D8DC', textAlign: 'center' }}>
+                      Read<br/><span style={{ fontSize: 9, fontWeight: 400 }}>Free ↓</span>
+                    </div>
                   )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</p>
-                    <p style={{ fontSize: 11, color: '#64748B', marginBottom: 6 }}>{b.author}</p>
-                    <span style={{ fontSize: 10, color: '#475569', background: '#0F172A', padding: '2px 8px', borderRadius: 20 }}>
-                      📥 {b.downloads.toLocaleString()}
-                    </span>
-                  </div>
-                  <div style={{ flexShrink: 0 }}>
-                    {downloading === b.id ? (
-                      <span className="spin" style={{ fontSize: 20, color: '#FF6B35' }}>⟳</span>
-                    ) : (
-                      <div style={{ background: '#FF6B35', borderRadius: 10, padding: '8px 12px', fontSize: 11, fontWeight: 600, color: '#fff', textAlign: 'center' }}>
-                        Read<br/><span style={{ fontSize: 9, fontWeight: 400 }}>Free ↓</span>
-                      </div>
-                    )}
-                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Default state — no genre selected */}
-      {!selectedGenre && (
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
         <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
           <p style={{ fontSize: 40, marginBottom: 12 }}>📚</p>
           <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Browse by Genre</p>
-          <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>
-            Tap the Genres button above to discover books by category
-          </p>
+          <p style={{ fontSize: 13, color: '#829EA2', marginBottom: 20 }}>Tap Genres above to discover books by category</p>
           <button onClick={() => setShowGenreMenu(true)} style={{
-            padding: '10px 24px', borderRadius: 20, border: 'none',
-            background: '#FF6B35', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer'
+            padding: '10px 24px', borderRadius: 2, border: 'none',
+            background: '#8B3A52', color: '#C8D8DC', fontSize: 13, fontWeight: 600, cursor: 'pointer'
           }}>
             📚 Browse Genres
           </button>
@@ -1900,7 +1910,9 @@ const HighlightsScreen = ({ t, onOpenBook }) => {
   );
 };
 
+
 // ── PROFILE SCREEN ────────────────────────────────────────
+
 const ProfileScreen = ({ t, user, onLogout }) => {
   const [userRating, setUserRating] = useState(() => Stats.getRating());
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -1909,6 +1921,7 @@ const ProfileScreen = ({ t, user, onLogout }) => {
   const [tempRating, setTempRating] = useState(0);
   const [readingTime, setReadingTime] = useState(() => Stats.getReadingTime());
   const [booksRead, setBooksRead] = useState(() => Stats.getBooksRead());
+  const [streak, setStreak] = useState(() => Stats.getStreak());
   const [profilePic, setProfilePic] = useState(() => Auth.getPic());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -1958,17 +1971,17 @@ const ProfileScreen = ({ t, user, onLogout }) => {
       <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>{t.profile}</h1>
 
       {/* User card */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#1E293B', borderRadius: 14, padding: 16, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#222A2F', borderRadius: 2, padding: 16, marginBottom: 20 }}>
         {/* Profile picture */}
         <div style={{ position: 'relative', flexShrink: 0 }} onClick={() => picRef.current.click()}>
           {profilePic ? (
-            <img src={profilePic} style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '2px solid #FF6B35' }}/>
+            <img src={profilePic} style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '2px solid #8B3A52' }}/>
           ) : (
-            <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#FF6B35', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, cursor: 'pointer' }}>
+            <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#8B3A52', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, cursor: 'pointer' }}>
               {(user?.name || 'U')[0].toUpperCase()}
             </div>
           )}
-          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%', background: '#0F172A', border: '1px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%', background: '#0B0D11', border: '1px solid #445257', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <span style={{ fontSize: 10 }}>✏️</span>
           </div>
           <input ref={picRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePicChange}/>
@@ -1981,10 +1994,10 @@ const ProfileScreen = ({ t, user, onLogout }) => {
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 autoFocus
-                style={{ background: '#0F172A', border: '1px solid #334155', borderRadius: 8, padding: '6px 10px', color: '#fff', fontSize: 14, fontFamily: 'Inter', outline: 'none', flex: 1 }}
+                style={{ background: '#0B0D11', border: '1px solid #445257', borderRadius: 8, padding: '6px 10px', color: '#C8D8DC', fontSize: 14, fontFamily: 'Lora', outline: 'none', flex: 1 }}
               />
-              <button onClick={saveName} style={{ background: '#FF6B35', border: 'none', borderRadius: 8, padding: '6px 10px', color: '#fff', fontSize: 12, cursor: 'pointer' }}>Save</button>
-              <button onClick={() => setEditingName(false)} style={{ background: '#334155', border: 'none', borderRadius: 8, padding: '6px 10px', color: '#94A3B8', fontSize: 12, cursor: 'pointer' }}>✕</button>
+              <button onClick={saveName} style={{ background: '#8B3A52', border: 'none', borderRadius: 8, padding: '6px 10px', color: '#C8D8DC', fontSize: 12, cursor: 'pointer' }}>Save</button>
+              <button onClick={() => setEditingName(false)} style={{ background: '#445257', border: 'none', borderRadius: 8, padding: '6px 10px', color: '#829EA2', fontSize: 12, cursor: 'pointer' }}>✕</button>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1994,42 +2007,62 @@ const ProfileScreen = ({ t, user, onLogout }) => {
               </button>
             </div>
           )}
-          <p style={{ fontSize: 12, color: '#64748B' }}>{user?.email}</p>
+          <p style={{ fontSize: 12, color: '#829EA2' }}>{user?.email}</p>
         </div>
 
         {/* Logout button */}
-        <button onClick={() => setShowLogoutConfirm(true)} style={{ background: 'none', border: '1px solid #334155', borderRadius: 10, padding: '6px 12px', color: '#64748B', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>
+        <button onClick={() => setShowLogoutConfirm(true)} style={{ background: 'none', border: '1px solid #445257', borderRadius: 2, padding: '6px 12px', color: '#829EA2', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>
           Log out
         </button>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
-        <div style={{ background: '#1E293B', borderRadius: 12, padding: '14px 10px', textAlign: 'center' }}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: '#FF6B35' }}>{Stats.formatTime(readingTime)}</p>
-          <p style={{ fontSize: 10, color: '#64748B', marginTop: 4 }}>{t.readingTime}</p>
+      {/* Streak banner */}
+      {streak > 0 && (
+        <div style={{ background:'linear-gradient(135deg, #8B3A52, #ff8c00)', borderRadius:2, padding:'14px 16px', marginBottom:16, display:'flex', alignItems:'center', gap:12 }}>
+          <span style={{ fontSize:32 }}>🔥</span>
+          <div>
+            <p style={{ fontSize:18, fontWeight:700, color:'#C8D8DC' }}>{streak} day streak!</p>
+            <p style={{ fontSize:12, color:'rgba(255,255,255,0.8)' }}>
+              {streak === 1 ? "Great start! Come back tomorrow to keep it going." :
+               streak < 7  ? "Keep it up! You're building a habit." :
+               streak < 30 ? "Impressive! You're on fire 🔥" :
+               "Legendary reader! You're unstoppable 🏆"}
+            </p>
+          </div>
         </div>
-        <div style={{ background: '#1E293B', borderRadius: 12, padding: '14px 10px', textAlign: 'center' }}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: '#FF6B35' }}>{booksRead}</p>
-          <p style={{ fontSize: 10, color: '#64748B', marginTop: 4 }}>{t.booksRead}</p>
+      )}
+
+      {/* Stats grid */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:20 }}>
+        <div style={{ background:"#222A2F", borderRadius:2, padding:"12px 8px", textAlign:"center" }}>
+          <p style={{ fontSize:14, fontWeight:700, color:"#8B3A52" }}>{Stats.formatTime(readingTime)}</p>
+          <p style={{ fontSize:9, color:"#829EA2", marginTop:4 }}>{t.readingTime}</p>
+        </div>
+        <div style={{ background:"#222A2F", borderRadius:2, padding:"12px 8px", textAlign:"center" }}>
+          <p style={{ fontSize:14, fontWeight:700, color:"#8B3A52" }}>{booksRead}</p>
+          <p style={{ fontSize:9, color:"#829EA2", marginTop:4 }}>{t.booksRead}</p>
+        </div>
+        <div style={{ background:"#222A2F", borderRadius:2, padding:"12px 8px", textAlign:"center" }}>
+          <p style={{ fontSize:14, fontWeight:700, color:"#8B3A52" }}>{streak > 0 ? `🔥 ${streak}` : '—'}</p>
+          <p style={{ fontSize:9, color:"#829EA2", marginTop:4 }}>Day streak</p>
         </div>
         <div onClick={() => { setTempRating(userRating || 5); setShowRatingModal(true); }}
-          style={{ background: '#1E293B', borderRadius: 12, padding: '14px 10px', textAlign: 'center', cursor: 'pointer' }}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: '#FF6B35' }}>{userRating > 0 ? `★ ${userRating}` : '★ —'}</p>
-          <p style={{ fontSize: 10, color: '#64748B', marginTop: 4 }}>{t.rating}</p>
+          style={{ background:"#222A2F", borderRadius:2, padding:"12px 8px", textAlign:"center", cursor:'pointer' }}>
+          <p style={{ fontSize:14, fontWeight:700, color:"#8B3A52" }}>{userRating > 0 ? `★ ${userRating}` : '—'}</p>
+          <p style={{ fontSize:9, color:"#829EA2", marginTop:4 }}>{t.rating}</p>
         </div>
       </div>
 
       {/* Menu */}
-      <div style={{ background: '#1E293B', borderRadius: 14, overflow: 'hidden' }}>
+      <div style={{ background: '#222A2F', borderRadius: 2, overflow: 'hidden' }}>
         {menuLabels.map((label, i) => (
           <div key={i} onClick={() => handleMenuClick(i)}
-            style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 16px', borderBottom: i < menuLabels.length - 1 ? '1px solid #0F172A' : 'none', cursor: 'pointer' }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name={menuIcons[i]} size={16} color="#FF6B35"/>
+            style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 16px', borderBottom: i < menuLabels.length - 1 ? '1px solid #0B0D11' : 'none', cursor: 'pointer' }}>
+            <div style={{ width: 34, height: 34, borderRadius: 2, background: '#0B0D11', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={menuIcons[i]} size={16} color="#8B3A52"/>
             </div>
             <span style={{ flex: 1, fontSize: 14 }}>{label}</span>
-            <Icon name="chevron_right" size={16} color="#334155"/>
+            <Icon name="chevron_right" size={16} color="#445257"/>
           </div>
         ))}
       </div>
@@ -2037,17 +2070,17 @@ const ProfileScreen = ({ t, user, onLogout }) => {
       {/* Logout confirm modal */}
       {showLogoutConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#1E293B', borderRadius: 16, padding: 24, width: '100%', maxWidth: 320, textAlign: 'center' }}>
+          <div style={{ background: '#222A2F', borderRadius: 16, padding: 24, width: '100%', maxWidth: 320, textAlign: 'center' }}>
             <p style={{ fontSize: 32, marginBottom: 12 }}>👋</p>
             <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Log out?</h3>
-            <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20 }}>Your books and progress will be saved.</p>
+            <p style={{ fontSize: 13, color: '#829EA2', marginBottom: 20 }}>Your books and progress will be saved.</p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowLogoutConfirm(false)}
-                style={{ flex: 1, padding: 12, borderRadius: 12, border: '1px solid #334155', background: 'transparent', color: '#64748B', fontSize: 13, cursor: 'pointer' }}>
+                style={{ flex: 1, padding: 12, borderRadius: 2, border: '1px solid #445257', background: 'transparent', color: '#829EA2', fontSize: 13, cursor: 'pointer' }}>
                 Cancel
               </button>
               <button onClick={async () => { await Auth.logout(); onLogout(); }}
-                style={{ flex: 1, padding: 12, borderRadius: 12, border: 'none', background: '#ef4444', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ flex: 1, padding: 12, borderRadius: 2, border: 'none', background: '#6B2D3A', color: '#C8D8DC', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Log out
               </button>
             </div>
@@ -2058,23 +2091,23 @@ const ProfileScreen = ({ t, user, onLogout }) => {
       {/* Rating modal */}
       {showRatingModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#1E293B', borderRadius: 16, padding: 24, width: '100%', maxWidth: 320 }}>
+          <div style={{ background: '#222A2F', borderRadius: 16, padding: 24, width: '100%', maxWidth: 320 }}>
             <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, textAlign: 'center' }}>Rate your experience</h3>
-            <p style={{ fontSize: 12, color: '#64748B', textAlign: 'center', marginBottom: 20 }}>How are you enjoying the app?</p>
+            <p style={{ fontSize: 12, color: '#829EA2', textAlign: 'center', marginBottom: 20 }}>How are you enjoying the app?</p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 20 }}>
               {[1,2,3,4,5].map(star => (
                 <button key={star} onClick={() => setTempRating(star)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 32, opacity: star <= tempRating ? 1 : 0.25, transition: 'all 0.15s', transform: star <= tempRating ? 'scale(1.1)' : 'scale(1)' }}>★</button>
               ))}
             </div>
-            <p style={{ textAlign: 'center', fontSize: 13, color: '#FF6B35', fontWeight: 600, marginBottom: 20 }}>
+            <p style={{ textAlign: 'center', fontSize: 13, color: '#8B3A52', fontWeight: 600, marginBottom: 20 }}>
               {['','Poor','Fair','Good','Great','Excellent! ⭐'][tempRating]}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowRatingModal(false)}
-                style={{ flex: 1, padding: 11, borderRadius: 10, border: '1px solid #334155', background: 'transparent', color: '#64748B', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                style={{ flex: 1, padding: 11, borderRadius: 2, border: '1px solid #445257', background: 'transparent', color: '#829EA2', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
               <button onClick={() => { Stats.setRating(tempRating); setUserRating(tempRating); setShowRatingModal(false); }}
-                style={{ flex: 1, padding: 11, borderRadius: 10, border: 'none', background: '#FF6B35', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Save</button>
+                style={{ flex: 1, padding: 11, borderRadius: 2, border: 'none', background: '#8B3A52', color: '#C8D8DC', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Save</button>
             </div>
           </div>
         </div>
@@ -2083,24 +2116,24 @@ const ProfileScreen = ({ t, user, onLogout }) => {
       {/* Feedback modal */}
       {showFeedback && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:1000, display:'flex', flexDirection:'column' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', background:'#1E293B', borderBottom:'1px solid #334155' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', background:'#222A2F', borderBottom:'1px solid #445257' }}>
             <h3 style={{ fontSize:16, fontWeight:600 }}>Send Feedback</h3>
-            <button onClick={() => { setShowFeedback(false); setFeedbackSent(false); }} style={{ background:'none', border:'none', cursor:'pointer', color:'#64748B', fontSize:22 }}>✕</button>
+            <button onClick={() => { setShowFeedback(false); setFeedbackSent(false); }} style={{ background:'none', border:'none', cursor:'pointer', color:'#829EA2', fontSize:22 }}>✕</button>
           </div>
           {feedbackSent ? (
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#0F172A', padding:32, textAlign:'center' }}>
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#0B0D11', padding:32, textAlign:'center' }}>
               <p style={{ fontSize:48, marginBottom:16 }}>🙏</p>
               <h3 style={{ fontSize:20, fontWeight:700, marginBottom:8 }}>Thanks for your feedback!</h3>
-              <p style={{ fontSize:14, color:'#64748B', marginBottom:28 }}>Your response helps us improve the app.</p>
+              <p style={{ fontSize:14, color:'#829EA2', marginBottom:28 }}>Your response helps us improve the app.</p>
               <button onClick={() => { setShowFeedback(false); setFeedbackSent(false); }}
-                style={{ padding:'12px 28px', borderRadius:20, border:'none', background:'#FF6B35', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer' }}>
+                style={{ padding:'12px 28px', borderRadius:2, border:'none', background:'#8B3A52', color:'#C8D8DC', fontSize:14, fontWeight:600, cursor:'pointer' }}>
                 Close
               </button>
             </div>
           ) : (
             <iframe
               src="https://tally.so/embed/Medo9g?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1"
-              style={{ flex:1, border:'none', width:'100%', background:'#0F172A' }}
+              style={{ flex:1, border:'none', width:'100%', background:'#0B0D11' }}
               title="Feedback"
               onLoad={(e) => {
                 try {
@@ -2123,7 +2156,7 @@ const ProfileScreen = ({ t, user, onLogout }) => {
 // ── APP ───────────────────────────────────────────────────
 const App = () => {
   const [tab, setTab] = useState("home");
-  const [lang, setLang] = useState("uz");
+  const [lang, setLang] = useState("en");
   const [readingBook, setReadingBook] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [user, setUser] = useState(() => Auth.getUser());
@@ -2173,10 +2206,10 @@ const App = () => {
   }, []);
 
   if (authLoading) return (
-    <div style={{ minHeight:'100vh', background:'#0F172A', display:'flex', alignItems:'center', justifyContent:'center' }}>
+    <div style={{ minHeight:'100vh', background:'#0B0D11', display:'flex', alignItems:'center', justifyContent:'center' }}>
       <div style={{ textAlign:'center' }}>
-        <span className="spin" style={{ fontSize:32, color:'#FF6B35' }}>⟳</span>
-        <p style={{ color:'#64748B', marginTop:12, fontSize:14 }}>Loading...</p>
+        <span className="spin" style={{ fontSize:32, color:'#8B3A52' }}>⟳</span>
+        <p style={{ color:'#829EA2', marginTop:12, fontSize:14 }}>Loading...</p>
       </div>
     </div>
   );
@@ -2204,24 +2237,24 @@ const App = () => {
   if (readingBook) return <ReaderScreen book={readingBook} onBack={closeBook} t={t}/>;
 
   return (
-    <div style={{ maxWidth:430, margin:"0 auto", minHeight:"100vh", background:"#0F172A", paddingBottom:72 }}>
+    <div style={{ maxWidth:430, margin:"0 auto", minHeight:"100vh", background:"#0B0D11", paddingBottom:72 }}>
       {/* Install banner */}
       {showInstallBanner && (
-        <div style={{ display:'flex', alignItems:'center', gap:10, background:'#1E293B', borderBottom:'1px solid #334155', padding:'10px 16px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, background:'#222A2F', borderBottom:'1px solid #445257', padding:'10px 16px' }}>
           <img src="logo.jpeg" style={{ width:32, height:32, borderRadius:8, objectFit:'cover' }}/>
           <div style={{ flex:1 }}>
-            <p style={{ fontSize:12, fontWeight:600, color:'#fff' }}>Install Ilm Read Books</p>
-            <p style={{ fontSize:11, color:'#64748B' }}>Add to home screen for quick access</p>
+            <p style={{ fontSize:12, fontWeight:600, color:'#C8D8DC' }}>Install Ilm Read Books</p>
+            <p style={{ fontSize:11, color:'#829EA2' }}>Add to home screen for quick access</p>
           </div>
-          <button onClick={handleInstall} style={{ background:'#FF6B35', border:'none', borderRadius:8, padding:'6px 12px', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', flexShrink:0 }}>
+          <button onClick={handleInstall} style={{ background:'#8B3A52', border:'none', borderRadius:8, padding:'6px 12px', color:'#C8D8DC', fontSize:12, fontWeight:600, cursor:'pointer', flexShrink:0 }}>
             Install
           </button>
-          <button onClick={() => setShowInstallBanner(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#64748B', fontSize:18, flexShrink:0 }}>✕</button>
+          <button onClick={() => setShowInstallBanner(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#829EA2', fontSize:18, flexShrink:0 }}>✕</button>
         </div>
       )}
       <div style={{ display:"flex", gap:6, padding:"14px 16px 0", justifyContent:"flex-end" }}>
-        {["uz","en","ru"].map(l => (
-          <button key={l} onClick={() => setLang(l)} style={{ padding:"4px 11px", borderRadius:20, border:"none", cursor:"pointer", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.5, background:lang===l?"#FF6B35":"#1E293B", color:lang===l?"#fff":"#64748B", transition:"all 0.15s" }}>
+        {["en"].map(l => (
+          <button key={l} onClick={() => setLang(l)} style={{ padding:"4px 11px", borderRadius:2, border:"none", cursor:"pointer", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.5, background:lang===l?"#8B3A52":"#222A2F", color:lang===l?"#fff":"#829EA2", transition:"all 0.15s" }}>
             {l}
           </button>
         ))}
@@ -2233,12 +2266,12 @@ const App = () => {
         {tab==="highlights" && <HighlightsScreen t={t} onOpenBook={openBook}/>}
         {tab==="profile" && <ProfileScreen t={t} user={user} onLogout={() => setUser(null)}/>}
       </div>
-      <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:430, background:"rgba(15,23,42,0.97)", backdropFilter:"blur(16px)", borderTop:"1px solid #1E293B", display:"flex", zIndex:100 }}>
+      <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:430, background:"#0B0D11", backdropFilter:"blur(8px)", borderTop:"1px solid #445257", display:"flex", zIndex:100 }}>
         {NAV.map(n => (
-          <button key={n.id} onClick={() => setTab(n.id)} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"10px 0 14px", background:"none", border:"none", cursor:"pointer", color:tab===n.id?"#FF6B35":"#475569", transition:"color 0.15s", position:"relative" }}>
-            <Icon name={n.icon} size={20} color={tab===n.id?"#FF6B35":"#475569"}/>
+          <button key={n.id} onClick={() => setTab(n.id)} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"10px 0 14px", background:"none", border:"none", cursor:"pointer", color:tab===n.id?"#8B3A52":"#829EA2", transition:"color 0.15s", position:"relative" }}>
+            <Icon name={n.icon} size={20} color={tab===n.id?"#8B3A52":"#829EA2"}/>
             <span style={{ fontSize:10, fontWeight:tab===n.id?600:400 }}>{n.label}</span>
-            {tab===n.id && <div style={{ position:"absolute", bottom:4, width:4, height:4, borderRadius:"50%", background:"#FF6B35" }}/>}
+            {tab===n.id && <div style={{ position:"absolute", bottom:4, width:4, height:4, borderRadius:"50%", background:"#8B3A52" }}/>}
           </button>
         ))}
       </div>
