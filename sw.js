@@ -1,10 +1,10 @@
-const CACHE = 'ilmbook-v3';
+const CACHE = 'ilmbook-v1';
 const ASSETS = [
   '/',
   '/index.html',
   '/style.css',
   '/script.js',
-  '/logo.jpeg',
+  '/Dark_Academia_Logo.jpeg',
   '/booklib.jpeg',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
   'https://unpkg.com/react@18/umd/react.development.js',

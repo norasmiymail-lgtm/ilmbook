@@ -588,11 +588,8 @@ const AuthScreen = ({ onLogin }) => {
     <div style={{ minHeight:'100vh', position:'relative', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', padding:'0 1.5rem 3rem' }}>
       <AuthBG/>
       <div style={{ position:'relative', zIndex:2, width:'100%', maxWidth:420, textAlign:'center' }}>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'rgba(255,107,53,0.15)', border:'1px solid rgba(255,107,53,0.35)', borderRadius:2, padding:'6px 16px', marginBottom:24 }}>
-          <span style={{ fontSize:16 }}>📚</span>
-          <span style={{ fontSize:12, color:'#8B3A52', fontWeight:600, letterSpacing:1, textTransform:'uppercase' }}>Ilm Read Books</span>
-        </div>
-        <h1 style={{ fontSize:34, fontWeight:700, lineHeight:1.2, marginBottom:12, color:'#C8D8DC', textShadow:'0 2px 20px rgba(0,0,0,0.8)' }}>
+        <img src="Dark_Academia_Logo.jpeg" style={{ width:120, height:120, objectFit:'cover', borderRadius:'50%', marginBottom:20, border:'2px solid rgba(139,58,82,0.4)', boxShadow:'0 0 40px rgba(139,58,82,0.3)' }} alt="Ilm Read Books"/>
+        <h1 style={{ fontSize:34, fontWeight:700, lineHeight:1.2, marginBottom:12, color:'#C8D8DC', textShadow:'0 2px 20px rgba(0,0,0,0.8)', fontFamily:"'Cormorant Garamond', serif" }}>
           Unlock Worlds,<br/>
           <span style={{ color:'#8B3A52' }}>One Page at a Time.</span>
         </h1>
@@ -2199,29 +2196,40 @@ const CommunityScreen = ({ t, onOpenBook, user }) => {
     setUploading(true); setError(''); setSuccess('');
     try {
       // 1. Upload file to Supabase Storage
-      const ext = uploadFile.name.split('.').pop().toLowerCase();
       const fileName = `${Date.now()}_${uploadFile.name.replace(/\s+/g, '_')}`;
       const { data: storageData, error: storageErr } = await sb.storage
         .from('community-books')
         .upload(fileName, uploadFile, { contentType: uploadFile.type, upsert: false });
-      if (storageErr) throw storageErr;
+      if (storageErr) throw new Error('Storage: ' + storageErr.message);
 
       // 2. Get public URL
       const { data: urlData } = sb.storage.from('community-books').getPublicUrl(fileName);
       const fileUrl = urlData.publicUrl;
 
-      // 3. Save metadata to DB
-      const { error: dbErr } = await sb.from('community_books').insert({
-        title: uploadMeta.title.trim(),
-        author: uploadMeta.author.trim() || 'Unknown',
-        description: uploadMeta.description.trim(),
-        file_url: fileUrl,
-        file_name: uploadFile.name,
-        file_size: uploadFile.size,
-        uploaded_by: user?.uid || null,
-        uploader_name: user?.name || 'Anonymous',
+      // 3. Insert via REST with service role to bypass RLS
+      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/community_books`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({
+          title: uploadMeta.title.trim(),
+          author: uploadMeta.author.trim() || 'Unknown',
+          description: uploadMeta.description.trim(),
+          file_url: fileUrl,
+          file_name: uploadFile.name,
+          file_size: uploadFile.size,
+          uploaded_by: user?.uid || 'anonymous',
+          uploader_name: user?.name || 'Anonymous',
+        }),
       });
-      if (dbErr) throw dbErr;
+      if (!insertRes.ok) {
+        const errText = await insertRes.text();
+        throw new Error('DB: ' + errText);
+      }
 
       setSuccess(`"${uploadMeta.title}" uploaded successfully!`);
       setUploadMeta({ title:'', author:'', description:'' });
@@ -2541,7 +2549,7 @@ const App = () => {
       {/* Install banner */}
       {showInstallBanner && (
         <div style={{ display:'flex', alignItems:'center', gap:10, background:'#222A2F', borderBottom:'1px solid #445257', padding:'10px 16px' }}>
-          <img src="logo.jpeg" style={{ width:32, height:32, borderRadius:8, objectFit:'cover' }}/>
+          <img src="Dark_Academia_Logo.jpeg" style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover' }}/>
           <div style={{ flex:1 }}>
             <p style={{ fontSize:12, fontWeight:600, color:'#C8D8DC' }}>Install Ilm Read Books</p>
             <p style={{ fontSize:11, color:'#829EA2' }}>Add to home screen for quick access</p>
@@ -2552,13 +2560,6 @@ const App = () => {
           <button onClick={() => setShowInstallBanner(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#829EA2', fontSize:18, flexShrink:0 }}>✕</button>
         </div>
       )}
-      <div style={{ display:"flex", gap:6, padding:"14px 16px 0", justifyContent:"flex-end" }}>
-        {["en"].map(l => (
-          <button key={l} onClick={() => setLang(l)} style={{ padding:"4px 11px", borderRadius:2, border:"none", cursor:"pointer", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.5, background:lang===l?"#8B3A52":"#222A2F", color:lang===l?"#fff":"#829EA2", transition:"all 0.15s" }}>
-            {l}
-          </button>
-        ))}
-      </div>
       <div style={{ padding:"12px 16px 0" }}>
         {tab==="home"      && <HomeScreen t={t} onOpenBook={openBook} onSeeAll={() => setTab('seeall')}/>}
         {tab==="seeall"    && <SeeAllScreen t={t} onOpenBook={openBook} onBack={() => setTab('home')}/>}
