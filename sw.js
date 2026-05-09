@@ -1,4 +1,4 @@
-const CACHE = 'ilmbook-v1';
+const CACHE = 'ilmbook-v3';
 const ASSETS = [
   '/',
   '/index.html',
