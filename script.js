@@ -438,6 +438,7 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
     trash:         <><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>,
     bookmark: <><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></>,
 highlighter: <><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></>,
+    users:    <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -2153,6 +2154,304 @@ const ProfileScreen = ({ t, user, onLogout }) => {
   );
 };
 
+// ── COMMUNITY SCREEN ─────────────────────────────────────
+const CommunityScreen = ({ t, onOpenBook, user }) => {
+  const [books, setBooks]           = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [uploading, setUploading]   = useState(false);
+  const [downloading, setDownloading] = useState(null);
+  const [error, setError]           = useState('');
+  const [success, setSuccess]       = useState('');
+  const [searchQ, setSearchQ]       = useState('');
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadMeta, setUploadMeta] = useState({ title:'', author:'', description:'' });
+  const [uploadFile, setUploadFile] = useState(null);
+  const fileRef = useRef();
+
+  // ── Fetch community books ─────────────────────────────
+  const loadBooks = async (query = '') => {
+    setLoading(true);
+    try {
+      let q = sb.from('community_books').select('*').order('created_at', { ascending: false });
+      if (query.trim()) q = q.ilike('title', `%${query}%`);
+      const { data, error } = await q;
+      if (error) throw error;
+      setBooks(data || []);
+    } catch (e) {
+      setError('Could not load books.');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadBooks(); }, []);
+
+  // ── Search debounce ────────────────────────────────────
+  const searchRef = useRef();
+  useEffect(() => {
+    clearTimeout(searchRef.current);
+    searchRef.current = setTimeout(() => loadBooks(searchQ), 400);
+  }, [searchQ]);
+
+  // ── Upload book ────────────────────────────────────────
+  const handleUpload = async () => {
+    if (!uploadFile) { setError('Please select a file.'); return; }
+    if (!uploadMeta.title.trim()) { setError('Please enter a title.'); return; }
+    setUploading(true); setError(''); setSuccess('');
+    try {
+      // 1. Upload file to Supabase Storage
+      const ext = uploadFile.name.split('.').pop().toLowerCase();
+      const fileName = `${Date.now()}_${uploadFile.name.replace(/\s+/g, '_')}`;
+      const { data: storageData, error: storageErr } = await sb.storage
+        .from('community-books')
+        .upload(fileName, uploadFile, { contentType: uploadFile.type, upsert: false });
+      if (storageErr) throw storageErr;
+
+      // 2. Get public URL
+      const { data: urlData } = sb.storage.from('community-books').getPublicUrl(fileName);
+      const fileUrl = urlData.publicUrl;
+
+      // 3. Save metadata to DB
+      const { error: dbErr } = await sb.from('community_books').insert({
+        title: uploadMeta.title.trim(),
+        author: uploadMeta.author.trim() || 'Unknown',
+        description: uploadMeta.description.trim(),
+        file_url: fileUrl,
+        file_name: uploadFile.name,
+        file_size: uploadFile.size,
+        uploaded_by: user?.uid || null,
+        uploader_name: user?.name || 'Anonymous',
+      });
+      if (dbErr) throw dbErr;
+
+      setSuccess(`"${uploadMeta.title}" uploaded successfully!`);
+      setUploadMeta({ title:'', author:'', description:'' });
+      setUploadFile(null);
+      setShowUpload(false);
+      loadBooks();
+    } catch (e) {
+      setError('Upload failed: ' + (e.message || 'Unknown error'));
+    }
+    setUploading(false);
+  };
+
+  // ── Download + open book ───────────────────────────────
+  const downloadAndOpen = async (b) => {
+    setDownloading(b.id); setError('');
+    try {
+      const ext = b.file_name?.split('.').pop().toLowerCase() || 'txt';
+      const res = await fetch(b.file_url);
+      if (!res.ok) throw new Error('fetch failed');
+
+      let paras = [];
+      if (ext === 'epub') {
+        const buffer = await res.arrayBuffer();
+        paras = await parseEpub(buffer);
+      } else if (ext === 'pdf') {
+        const buffer = await res.arrayBuffer();
+        paras = await parsePdf(buffer);
+      } else {
+        const text = await res.text();
+        paras = parseTxt(text);
+      }
+      if (paras.length === 0) throw new Error('empty');
+
+      const name = b.title + '.' + ext;
+      await LS.saveBook(name, paras);
+      if (b.cover_url) localStorage.setItem('defaultcover_' + name, b.cover_url);
+
+      // Increment download count
+      sb.from('community_books').update({ downloads: (b.downloads || 0) + 1 }).eq('id', b.id).then(() => {});
+
+      onOpenBook({ name, title: b.title, paras, cover: b.cover_url || coverColor(name) });
+    } catch (e) {
+      setError('Could not download this book.');
+    }
+    setDownloading(null);
+  };
+
+  // ── Delete own book ────────────────────────────────────
+  const deleteBook = async (b) => {
+    if (!confirm(`Delete "${b.title}"?`)) return;
+    try {
+      const fileName = b.file_url.split('/').pop();
+      await sb.storage.from('community-books').remove([fileName]);
+      await sb.from('community_books').delete().eq('id', b.id);
+      loadBooks();
+    } catch { setError('Could not delete.'); }
+  };
+
+  const fmtSize = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '';
+
+  return (
+    <div className="fade-in" style={{ paddingBottom: 24 }}>
+
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700 }}>Community</h1>
+          <p style={{ fontSize: 12, color: '#829EA2', marginTop: 2 }}>Books shared by readers</p>
+        </div>
+        {user && (
+          <button onClick={() => { setShowUpload(p => !p); setError(''); setSuccess(''); }}
+            style={{ display:'flex', alignItems:'center', gap:6, background: showUpload ? '#445257' : '#8B3A52', border:'none', borderRadius:2, padding:'9px 14px', color:'#C8D8DC', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+            {showUpload ? '✕ Cancel' : '↑ Share Book'}
+          </button>
+        )}
+        {!user && (
+          <p style={{ fontSize: 11, color: '#829EA2', fontStyle:'italic' }}>Sign in to share</p>
+        )}
+      </div>
+
+      {/* Feedback */}
+      {error   && <p style={{ color:'#A05252', fontSize:12, marginBottom:12, padding:'8px 12px', background:'rgba(160,82,82,0.1)', borderRadius:2, border:'1px solid rgba(160,82,82,0.2)' }}>{error}</p>}
+      {success && <p style={{ color:'#6B8F6B', fontSize:12, marginBottom:12, padding:'8px 12px', background:'rgba(107,143,107,0.1)', borderRadius:2, border:'1px solid rgba(107,143,107,0.2)' }}>{success}</p>}
+
+      {/* Upload form */}
+      {showUpload && user && (
+        <div style={{ background:'#222A2F', border:'1px solid #445257', borderRadius:2, padding:16, marginBottom:20 }}>
+          <p style={{ fontSize:13, fontWeight:600, marginBottom:14, color:'#C8D8DC' }}>Share a Book</p>
+
+          <input value={uploadMeta.title} onChange={e => setUploadMeta(p => ({...p, title:e.target.value}))}
+            placeholder="Book title *"
+            style={{ width:'100%', background:'#0B0D11', border:'1px solid #445257', borderRadius:2, padding:'9px 12px', color:'#C8D8DC', fontSize:13, marginBottom:10, outline:'none', fontFamily:"'Lora', serif" }}/>
+
+          <input value={uploadMeta.author} onChange={e => setUploadMeta(p => ({...p, author:e.target.value}))}
+            placeholder="Author name"
+            style={{ width:'100%', background:'#0B0D11', border:'1px solid #445257', borderRadius:2, padding:'9px 12px', color:'#C8D8DC', fontSize:13, marginBottom:10, outline:'none', fontFamily:"'Lora', serif" }}/>
+
+          <textarea value={uploadMeta.description} onChange={e => setUploadMeta(p => ({...p, description:e.target.value}))}
+            placeholder="Short description (optional)"
+            rows={2}
+            style={{ width:'100%', background:'#0B0D11', border:'1px solid #445257', borderRadius:2, padding:'9px 12px', color:'#C8D8DC', fontSize:13, marginBottom:10, outline:'none', resize:'none', fontFamily:"'Lora', serif" }}/>
+
+          {/* File picker */}
+          <div onClick={() => fileRef.current.click()}
+            style={{ border:'1.5px dashed #445257', borderRadius:2, padding:'14px', textAlign:'center', cursor:'pointer', marginBottom:12, background: uploadFile ? 'rgba(139,58,82,0.08)' : 'transparent' }}>
+            <input ref={fileRef} type="file" accept=".epub,.pdf,.txt" style={{ display:'none' }}
+              onChange={e => { const f = e.target.files[0]; if (f) setUploadFile(f); }}/>
+            {uploadFile ? (
+              <div>
+                <p style={{ fontSize:13, fontWeight:600, color:'#8B3A52' }}>📄 {uploadFile.name}</p>
+                <p style={{ fontSize:11, color:'#829EA2', marginTop:3 }}>{fmtSize(uploadFile.size)}</p>
+              </div>
+            ) : (
+              <div>
+                <p style={{ fontSize:13, color:'#829EA2' }}>Tap to select file</p>
+                <p style={{ fontSize:11, color:'#445257', marginTop:3 }}>EPUB, PDF, or TXT · max 50 MB</p>
+              </div>
+            )}
+          </div>
+
+          <button onClick={handleUpload} disabled={uploading}
+            style={{ width:'100%', padding:'11px', background: uploading ? '#445257' : '#8B3A52', border:'none', borderRadius:2, color:'#C8D8DC', fontSize:13, fontWeight:600, cursor: uploading ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+            {uploading ? <><span className="spin">⟳</span> Uploading...</> : '↑ Upload & Share'}
+          </button>
+        </div>
+      )}
+
+      {/* Search */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, background:'#222A2F', borderRadius:2, padding:'10px 14px', marginBottom:16, border:'1px solid #445257' }}>
+        <Icon name="search" size={15} color="#829EA2"/>
+        <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
+          placeholder="Search community books..."
+          style={{ background:'none', border:'none', outline:'none', color:'#C8D8DC', fontSize:13, flex:1, fontFamily:"'Lora', serif" }}/>
+        {searchQ && <button onClick={() => setSearchQ('')} style={{ background:'none', border:'none', cursor:'pointer', color:'#829EA2', fontSize:16 }}>✕</button>}
+      </div>
+
+      {/* Book count */}
+      {!loading && (
+        <p style={{ fontSize:11, color:'#445257', marginBottom:12, fontStyle:'italic' }}>
+          {books.length} book{books.length !== 1 ? 's' : ''} shared by the community
+        </p>
+      )}
+
+      {/* Book list */}
+      {loading ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {[1,2,3].map(i => (
+            <div key={i} style={{ display:'flex', gap:12, background:'#222A2F', borderRadius:2, padding:12, border:'1px solid #445257' }}>
+              <div style={{ width:52, height:74, borderRadius:2, background:'#2A3038', flexShrink:0, overflow:'hidden', position:'relative' }}>
+                <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.03),transparent)', animation:'shimmer 1.2s infinite' }}/>
+              </div>
+              <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8, justifyContent:'center' }}>
+                <div style={{ height:12, background:'#2A3038', borderRadius:2, width:'65%' }}/>
+                <div style={{ height:10, background:'#2A3038', borderRadius:2, width:'40%' }}/>
+                <div style={{ height:9, background:'#2A3038', borderRadius:2, width:'55%' }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : books.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'4rem 1rem' }}>
+          <p style={{ fontSize:36, marginBottom:12 }}>📚</p>
+          <p style={{ fontSize:15, fontWeight:600, marginBottom:6 }}>No books yet</p>
+          <p style={{ fontSize:13, color:'#829EA2' }}>Be the first to share a book with the community</p>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {books.map(b => (
+            <div key={b.id} style={{ background:'#222A2F', border:'1px solid #445257', borderRadius:2, padding:12 }}>
+              <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+
+                {/* Cover */}
+                <div style={{ flexShrink:0 }}
+                  onClick={() => downloading === null && downloadAndOpen(b)}>
+                  {b.cover_url ? (
+                    <img src={b.cover_url} style={{ width:52, height:74, borderRadius:2, objectFit:'cover', border:'1px solid #445257', cursor:'pointer' }}
+                      onError={e => { e.target.style.display='none'; }}/>
+                  ) : (
+                    <div style={{ width:52, height:74, borderRadius:2, background:coverColor(b.title), display:'flex', alignItems:'flex-end', padding:6, cursor:'pointer', border:'1px solid #445257' }}>
+                      <span style={{ fontSize:9, fontWeight:600, color:'#C8D8DC', lineHeight:1.3 }}>{b.title.slice(0,20)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div style={{ flex:1, minWidth:0 }} onClick={() => downloading === null && downloadAndOpen(b)} style={{ flex:1, minWidth:0, cursor:'pointer' }}>
+                  <p style={{ fontSize:13, fontWeight:600, marginBottom:2, lineHeight:1.35 }}>{b.title}</p>
+                  <p style={{ fontSize:11, color:'#829EA2', marginBottom:4 }}>{b.author}</p>
+                  {b.description ? <p style={{ fontSize:11, color:'#445257', marginBottom:6, fontStyle:'italic', lineHeight:1.4, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{b.description}</p> : null}
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+                    <span style={{ fontSize:10, color:'#829EA2' }}>by {b.uploader_name}</span>
+                    <span style={{ fontSize:10, color:'#445257' }}>·</span>
+                    <span style={{ fontSize:10, color:'#445257' }}>{fmtDate(b.created_at)}</span>
+                    {b.file_size ? <><span style={{ fontSize:10, color:'#445257' }}>·</span><span style={{ fontSize:10, color:'#445257' }}>{fmtSize(b.file_size)}</span></> : null}
+                    {b.downloads > 0 ? <><span style={{ fontSize:10, color:'#445257' }}>·</span><span style={{ fontSize:10, color:'#445257' }}>📥 {b.downloads}</span></> : null}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ flexShrink:0, display:'flex', flexDirection:'column', gap:6, alignItems:'flex-end' }}>
+                  {downloading === b.id ? (
+                    <span className="spin" style={{ fontSize:20, color:'#8B3A52' }}>⟳</span>
+                  ) : (
+                    <button onClick={() => downloadAndOpen(b)}
+                      style={{ background:'#8B3A52', border:'none', borderRadius:2, padding:'7px 12px', color:'#C8D8DC', fontSize:11, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
+                      Read ↓
+                    </button>
+                  )}
+                  {user && b.uploaded_by === user.uid && (
+                    <button onClick={() => deleteBook(b)}
+                      style={{ background:'none', border:'1px solid #445257', borderRadius:2, padding:'4px 8px', color:'#829EA2', fontSize:10, cursor:'pointer' }}>
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── APP ───────────────────────────────────────────────────
 const App = () => {
   const [tab, setTab] = useState("home");
@@ -2217,10 +2516,11 @@ const App = () => {
   if (!user) return <AuthScreen onLogin={(u) => setUser(u)} />;
 
   const NAV = [
-  { id:"home",      label:t.home,       icon:"home"      },
-  { id:"library",   label:t.myBooks,    icon:"book"      },
-  { id:"highlights",label:t.highlights, icon:"bookmark"  },
-  { id:"profile",   label:t.profile,    icon:"user"      },
+  { id:"home",       label:t.home,       icon:"home"      },
+  { id:"library",    label:t.myBooks,    icon:"book"      },
+  { id:"community",  label:"Community",  icon:"users"     },
+  { id:"highlights", label:t.highlights, icon:"bookmark"  },
+  { id:"profile",    label:t.profile,    icon:"user"      },
 ];
 
   const openBook = book => {
@@ -2260,11 +2560,12 @@ const App = () => {
         ))}
       </div>
       <div style={{ padding:"12px 16px 0" }}>
-        {tab==="home" && <HomeScreen t={t} onOpenBook={openBook} onSeeAll={() => setTab('seeall')}/>}
-        {tab==="seeall" && <SeeAllScreen t={t} onOpenBook={openBook} onBack={() => setTab('home')}/>}
-        {tab==="library" && <LibraryScreen t={t} onOpenBook={openBook} refreshKey={refreshKey}/>}
-        {tab==="highlights" && <HighlightsScreen t={t} onOpenBook={openBook}/>}
-        {tab==="profile" && <ProfileScreen t={t} user={user} onLogout={() => setUser(null)}/>}
+        {tab==="home"      && <HomeScreen t={t} onOpenBook={openBook} onSeeAll={() => setTab('seeall')}/>}
+        {tab==="seeall"    && <SeeAllScreen t={t} onOpenBook={openBook} onBack={() => setTab('home')}/>}
+        {tab==="library"   && <LibraryScreen t={t} onOpenBook={openBook} refreshKey={refreshKey}/>}
+        {tab==="community" && <CommunityScreen t={t} onOpenBook={openBook} user={user}/>}
+        {tab==="highlights"&& <HighlightsScreen t={t} onOpenBook={openBook}/>}
+        {tab==="profile"   && <ProfileScreen t={t} user={user} onLogout={() => setUser(null)}/>}
       </div>
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:430, background:"#0B0D11", backdropFilter:"blur(8px)", borderTop:"1px solid #445257", display:"flex", zIndex:100 }}>
         {NAV.map(n => (
