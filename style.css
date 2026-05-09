@@ -1,19 +1,106 @@
+/* ── RESET ─────────────────────────────────────────────── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; min-height: 100vh; }
+
+/* ── BASE ──────────────────────────────────────────────── */
 body {
-  font-family: 'Inter', sans-serif;
-  background: #0a0f1e;
-  color: #fff;
+  font-family: 'Lora', 'EB Garamond', Georgia, serif;
+  background: #0B0D11;
+  color: #C8D8DC;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.01em;
 }
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #1E293B; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+/* ── TYPOGRAPHY ────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #C8D8DC;
+}
+
+/* ── SCROLLBAR ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: #0B0D11; }
+::-webkit-scrollbar-thumb { background: #445257; border-radius: 0; }
 .scroll-x { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
 .scroll-x::-webkit-scrollbar { display: none; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-.fade-in { animation: fadeIn 0.25s ease both; }
+
+/* ── ANIMATIONS ────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.fade-in { animation: fadeIn 0.35s ease both; }
+
 @keyframes spin { to { transform: rotate(360deg); } }
-.spin { animation: spin 0.8s linear infinite; display: inline-block; }
-@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-::placeholder { color: #475569 !important; opacity: 1; }
+.spin { animation: spin 0.9s linear infinite; display: inline-block; }
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── PLACEHOLDER ───────────────────────────────────────── */
+::placeholder { color: #445257 !important; opacity: 1; font-style: italic; font-family: 'Lora', serif; }
+
+/* ── INPUTS ────────────────────────────────────────────── */
+input, textarea {
+  font-family: 'Lora', 'EB Garamond', serif !important;
+  color: #C8D8DC !important;
+}
+
+/* ── BUTTONS ───────────────────────────────────────────── */
+button { font-family: 'Lora', serif; letter-spacing: 0.03em; }
+
+/* ── CARD SURFACES ─────────────────────────────────────── */
+.da-card { background: #222A2F; border: 1px solid #445257; border-radius: 2px; }
+
+/* ── BOOK CARD HOVER ───────────────────────────────────── */
+.book-card { transition: border-color 0.2s, background 0.2s; border: 1px solid #445257; }
+.book-card:hover { border-color: #8B3A52; background: #1C2226; }
+
+/* ── ACCENT LINE ───────────────────────────────────────── */
+.accent-line { width: 32px; height: 1px; background: #8B3A52; margin: 6px 0 12px; }
+
+/* ── ZEN READER MODE ───────────────────────────────────── */
+.zen-reader {
+  font-family: 'EB Garamond', 'Lora', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.9;
+  color: #C8D8DC;
+  max-width: 65ch;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  letter-spacing: 0.015em;
+}
+
+/* ── ANNOTATION STYLES ─────────────────────────────────── */
+.ann-highlight { background: rgba(139,58,82,0.15); border-bottom: 1px solid rgba(139,58,82,0.5); padding-bottom: 1px; }
+.ann-underline { border-bottom: 1px solid #829EA2; padding-bottom: 1px; }
+.ann-strike    { text-decoration: line-through; text-decoration-color: #829EA2; }
+
+/* ── BOTTOM NAV ────────────────────────────────────────── */
+.bottom-nav { background: #0B0D11; border-top: 1px solid #445257; }
+
+/* ── SELECTION ─────────────────────────────────────────── */
+::selection { background: rgba(139,58,82,0.3); color: #C8D8DC; }
+
+/* ── DIVIDER ───────────────────────────────────────────── */
+.da-divider { height: 1px; background: #445257; margin: 16px 0; }
+
+/* ── BADGE ─────────────────────────────────────────────── */
+.da-badge {
+  font-family: 'Lora', serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #829EA2;
+  border: 1px solid #445257;
+  padding: 2px 8px;
+  border-radius: 0;
+}
+
+/* ── PAGE PADDING ──────────────────────────────────────── */
+.page-pad { padding: 20px 16px 100px; max-width: 480px; margin: 0 auto; }
